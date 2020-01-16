@@ -1,31 +1,33 @@
-## Substrate DID Pallet
+# Substrate DID Pallet
 
 The DID pallet provides functionality for DIDs management. It uses a universal identity registry where all the required data is associated with an address. It enables the possibility to create a portable, persistent,  privacy-protecting, and personal identity.
 
 ## Self-Sovereign Identity
 
-A decentralized identity or self-sovereign identity is a new approach where no one but you owns or controls the state of your digital identity. 
+A decentralized identity or self-sovereign identity is a new approach where no one but you own or control the state of your digital identity.
 
-Some of the inherited benefits from this identities are:
+Some of the inherited benefits of self-sovereign identity are:
 
-* Identity Verification
+* Seamless Identity Verification
 * Non-Custodial Login Solutions
 * Stronger Protections for Critical Infrastructure
 * Securing the Internet of Things
 
 ## DID
 
-_Decentralized identifiers (DIDs) are a new type of identifier to provide verifiable, decentralized digital identity. These new identifiers are designed to enable the controller of a DID to prove control over it and to be implemented __independently__ of any __centralized registry, identity provider, or certificate authority__. DIDs are URLs that relate a DID subject to a DID document allowing trustable interactions with that subject. DID documents are simple documents describing how to use that specific DID. Each DID document can express cryptographic material, verification methods, or service endpoints, which provide a set of mechanisms enabling a DID controller to prove control of the DID. Service endpoints enable trusted interactions with the DID subject._  -  [DID - W3C Community Contributor](https://w3c-ccg.github.io/did-spec/)
+_Decentralized identifiers (DIDs) are a new type of identifier to provide verifiable, decentralized digital identity. These new identifiers are designed to enable the controller of a DID to prove control over it and to be implemented __independently__ of any __centralized registry, identity provider, or certificate authority__. DIDs are URLs that relate a DID subject to a DID document allowing trustable interactions with that subject. DID documents are simple documents describing how to use that specific DID. Each DID document can express cryptographic material, verification methods, or service endpoints, which provide a set of mechanisms enabling a DID controller to prove control of the DID. Service endpoints enable trusted interactions with the DID subject._  - [DID - W3C Community Contributor](https://w3c-ccg.github.io/did-spec/)
 
-### DID Document
+## DID Document
+
 _A set of data that describes the subject of a DID, including mechanisms, such as public keys and pseudonymous biometrics, that the DID subject can use to authenticate itself and prove their association with the DID. A DID Document may also contain other attributes or claims describing the subject. These documents are graph-based data structures that are typically expressed using JSON-LD, but may be expressed using other compatible graph-based data formats._ [DID - Documents](https://w3c-ccg.github.io/did-spec/#dfn-did-document)
 
 **To create a DID-Document, a *DID resolver* needs to get all the information from the registry and validate the credentials.** _DID resolvers are a separate component in the DID stack._
 
-### DID document examples for compatibility between different projects:
+## DID document examples for compatibility between different projects
 
-#### Substrate
-``` JSON
+### Substrate
+
+```JSON
 {  
    "@context":"https://w3id.org/did/v1",
    "id":"did:substrate:5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX",
@@ -51,7 +53,7 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
       }
    ],
    "service": [
-      { 
+      {
          "id": "did:substrate:5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX#openid",
          "serviceEndpoint":"https://openid.example.com/",
          "type":"OpenIdConnectVersion1.0Service"
@@ -67,9 +69,9 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
 }
 ```
 
+### uPort
 
-#### uPort
-``` JSON
+```JSON
 {  
    "@context":"https://w3id.org/did/v1",
    "id":"did:ethr:0xb9c5714089478a327f09197987f16f9e5d936e8a",
@@ -90,8 +92,9 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
 }
 ```
 
-#### 3Box
-``` JSON
+### 3Box
+
+```JSON
 {  
    "@context":"https://w3id.org/did/v1",
    "id":"did:3:zdpuAt4qH8ur3vHpVrP1xb7rtJuyVUVbRiGatkkVcJZRgAXDf",
@@ -123,8 +126,12 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
 
 ## Registry Test
 
-Execute module tests:
+Execute module tests
 
 ```bash
 cargo test -p pallet-did
 ```
+
+## About This Pallet
+
+[TODO]
