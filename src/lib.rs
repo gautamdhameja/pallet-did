@@ -178,12 +178,12 @@ decl_module! {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
-            ensure!(&who != &delegate, Error::<T>::MyErrorMessage);
+            ensure!(&who != &delegate, Error::<T>::InvalidDelegate);
             ensure!(
                 !Self::valid_listed_delegate(&identity, &delegate_type, &delegate).is_ok(),
-                Error::<T>::MyErrorMessage
+                Error::<T>::InvalidDelegate
             );
-            ensure!(delegate_type.len() <= 64, Error::<T>::MyErrorMessage);
+            ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
 
             let now_timestamp = <timestamp::Module<T>>::now();
             let now_block_number = <system::Module<T>>::block_number();
@@ -215,7 +215,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
             Self::valid_listed_delegate(&identity, &delegate_type, &delegate)?;
-            ensure!(delegate_type.len() <= 64, Error::<T>::MyErrorMessage);
+            ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
 
             let now_timestamp = <timestamp::Module<T>>::now();
             let now_block_number = <system::Module<T>>::block_number();
@@ -242,7 +242,7 @@ decl_module! {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
-            ensure!(name.len() <= 64, Error::<T>::MyErrorMessage);
+            ensure!(name.len() <= 64, Error::<T>::AttributeCreationFailed);
 
             Self::create_attribute(who, &identity, &name, &value, &valid_for)?;
             Self::deposit_event(RawEvent::AttributeAdded(identity, name, valid_for));
@@ -255,7 +255,7 @@ decl_module! {
         pub fn revoke_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
-            ensure!(name.len() <= 64, Error::<T>::MyErrorMessage);
+            ensure!(name.len() <= 64, Error::<T>::AttributeRemovalFailed);
 
             Self::reset_attribute(who, &identity, &name)?;
             Self::deposit_event(RawEvent::AttributeRevoked(
@@ -271,14 +271,14 @@ decl_module! {
         pub fn delete_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
-            ensure!(name.len() <= 64, Error::<T>::MyErrorMessage);
+            ensure!(name.len() <= 64, Error::<T>::AttributeRemovalFailed);
 
             let now_block_number = <system::Module<T>>::block_number();
             let result = Self::attribute_and_id(&identity, &name);
 
             match result {
                 Some((_, id)) => <AttributeOf<T>>::remove((identity.clone(), id)),
-                None => return Err(Error::<T>::MyErrorMessage.into()),
+                None => return Err(Error::<T>::AttributeRemovalFailed.into()),
             }
 
             <UpdatedBy<T>>::insert(
@@ -330,7 +330,14 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        MyErrorMessage,
+        NotOwner,
+        InvalidDelegate,
+        BadSignature,
+        AttributeCreationFailed,
+        AttributeResetFailed,
+        AttributeRemovalFailed,
+        Overflow,
+        BadTransaction,
     }
 }
 
@@ -340,7 +347,7 @@ impl<T: Trait> Module<T> {
         let owner = Self::identity_owner(identity);
         match owner == *actual_owner {
             true => Ok(()),
-            false => Err(Error::<T>::MyErrorMessage.into()),
+            false => Err(Error::<T>::NotOwner.into()),
         }
     }
 
@@ -360,11 +367,11 @@ impl<T: Trait> Module<T> {
         delegate_type: &Vec<u8>,
         delegate: &T::AccountId,
     ) -> DispatchResult {
-        ensure!(delegate_type.len() <= 64, Error::<T>::MyErrorMessage);
+        ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
         ensure!(
             Self::valid_listed_delegate(identity, delegate_type, delegate).is_ok()
                 || Self::is_owner(identity, delegate).is_ok(),
-            Error::<T>::MyErrorMessage
+            Error::<T>::InvalidDelegate
         );
         Ok(())
     }
@@ -377,14 +384,14 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         ensure!(
             <DelegateOf<T>>::exists((identity.clone(), delegate_type.clone(), delegate.clone())),
-            Error::<T>::MyErrorMessage
+            Error::<T>::InvalidDelegate
         );
 
         let validity =
             Self::delegate_of((identity.clone(), delegate_type.clone(), delegate.clone()));
         match validity > Some(<system::Module<T>>::block_number()) {
             true => Ok(()),
-            false => Err(Error::<T>::MyErrorMessage.into()),
+            false => Err(Error::<T>::InvalidDelegate.into()),
         }
     }
 
@@ -397,7 +404,7 @@ impl<T: Trait> Module<T> {
         if signature.verify(msg, signer) {
             Ok(())
         } else {
-            Err(Error::<T>::MyErrorMessage.into())
+            Err(Error::<T>::BadSignature.into())
         }
     }
 
@@ -442,7 +449,7 @@ impl<T: Trait> Module<T> {
         let id = (identity, name, lookup_nonce).using_encoded(<T as system::Trait>::Hashing::hash);
 
         if <AttributeOf<T>>::exists((identity.clone(), id.clone())) {
-            Err(Error::<T>::MyErrorMessage.into())
+            Err(Error::<T>::AttributeCreationFailed.into())
         } else {
             let new_attribute = Attribute {
                 name: name.clone(),
@@ -452,7 +459,7 @@ impl<T: Trait> Module<T> {
                 nonce: nonce.clone(),
             };
 
-            nonce = nonce.checked_add(1).ok_or(Error::<T>::MyErrorMessage)?; // prevent overflow panic
+            nonce = nonce.checked_add(1).ok_or(Error::<T>::Overflow)?; // prevent overflow panic
 
             <AttributeOf<T>>::insert((identity.clone(), id), new_attribute);
             <AttributeNonce<T>>::mutate((identity.clone(), name.clone()), |n| *n = nonce);
@@ -481,7 +488,7 @@ impl<T: Trait> Module<T> {
                 attribute.validity = <system::Module<T>>::block_number();
                 <AttributeOf<T>>::mutate((identity.clone(), id), |a| *a = attribute);
             }
-            None => return Err(Error::<T>::MyErrorMessage.into()),
+            None => return Err(Error::<T>::AttributeResetFailed.into()),
         }
 
         // Keep track of the updates.
@@ -531,7 +538,7 @@ impl<T: Trait> Module<T> {
         encoded: &[u8],
         transaction: &AttributeTransaction<T::Signature, T::AccountId>,
     ) -> DispatchResult {
-        // Verify that the Data was signer by the owner or a not expired signer delegate.
+        // Verify that the Data was signed by the owner or a not expired signer delegate.
         Self::valid_signer(
             &transaction.identity,
             &transaction.signature,
@@ -539,7 +546,7 @@ impl<T: Trait> Module<T> {
             &transaction.signer,
         )?;
         Self::is_owner(&transaction.identity, &transaction.signer)?;
-        ensure!(&transaction.name.len() <= &64, Error::<T>::MyErrorMessage);
+        ensure!(&transaction.name.len() <= &64, Error::<T>::BadTransaction);
 
         let now_block_number = <system::Module<T>>::block_number();
         let validity = now_block_number + transaction.validity.into();
@@ -662,7 +669,7 @@ mod tests {
         let bobtc_public = account_key("Bob");
         
         // Fail to validate that Bob signed the message.
-        assert_noop!(DID::check_signature(&satoshi_sig, &claim, &bobtc_public), Error::<Test>::MyErrorMessage);
+        assert_noop!(DID::check_signature(&satoshi_sig, &claim, &bobtc_public), Error::<Test>::BadSignature);
     });
   }
 }
