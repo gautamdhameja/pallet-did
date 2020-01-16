@@ -79,15 +79,13 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure, StorageMap,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, StorageMap,
 };
 use sp_runtime::traits::{Hash, IdentifyAccount, Member, Verify};
 use sp_std::{prelude::*, vec::Vec};
 use system::ensure_signed;
 
-/// Attributes or properties that make up an identity.
+/// Attributes or properties that make an identity.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Attribute<BlockNumber, Moment> {
@@ -235,7 +233,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Creates a new attribute as part of an identity. 
+        /// Creates a new attribute as part of an identity.
         /// Sets its expiration period.
         pub fn add_attribute(
             origin,
@@ -254,7 +252,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Revokes an attribute/property from an identity. 
+        /// Revokes an attribute/property from an identity.
         /// Sets its expiration period to the actual block number.
         pub fn revoke_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -340,6 +338,7 @@ decl_error! {
         AttributeCreationFailed,
         AttributeResetFailed,
         AttributeRemovalFailed,
+        InvalidAttribute,
         Overflow,
         BadTransaction,
     }
@@ -507,6 +506,27 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Validates if an attribute belongs to an identity and it has not expired.
+    pub fn valid_attribute(
+        identity: &T::AccountId,
+        name: &Vec<u8>,
+        value: &Vec<u8>,
+    ) -> DispatchResult {
+        ensure!(name.len() <= 64, Error::<T>::InvalidAttribute);
+        let result = Self::attribute_and_id(identity, name);
+
+        let (attr, _) = match result {
+            Some((attr, id)) => (attr, id),
+            None => return Err(Error::<T>::InvalidAttribute.into()),
+        };
+
+        if (attr.validity > (<system::Module<T>>::block_number())) && (attr.value == *value) {
+            Ok(())
+        } else {
+            Err(Error::<T>::InvalidAttribute.into())
+        }
+    }
+
     /// Returns the attribute and its hash identifier.
     /// Uses a nonce to keep track of identifiers making them unique after attributes deletion.
     pub fn attribute_and_id(
@@ -576,8 +596,9 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use frame_support::{
-      assert_ok, assert_noop, impl_outer_origin, parameter_types, weights::Weight};
-    use sp_core::{H256, sr25519, Pair};
+        assert_noop, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
+    };
+    use sp_core::{sr25519, Pair, H256};
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup},
@@ -620,18 +641,19 @@ mod tests {
     }
 
     impl timestamp::Trait for Test {
-      type Moment = u64;
-      type OnTimestampSet = ();
-      type MinimumPeriod = ();
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = ();
     }
 
     impl Trait for Test {
-      type Event = ();
-      type Public = sr25519::Public;
-      type Signature = sr25519::Signature;
+        type Event = ();
+        type Public = sr25519::Public;
+        type Signature = sr25519::Signature;
     }
 
     type DID = Module<Test>;
+    type System = system::Module<Test>;
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
@@ -643,37 +665,219 @@ mod tests {
     }
 
     pub fn account_pair(s: &str) -> sr25519::Pair {
-        sr25519::Pair::from_string(&format!("//{}", s), None)
-        .expect("static values are valid; qed")
+        sr25519::Pair::from_string(&format!("//{}", s), None).expect("static values are valid; qed")
     }
 
     pub fn account_key(s: &str) -> sr25519::Public {
         sr25519::Pair::from_string(&format!("//{}", s), None)
-        .expect("static values are valid; qed")
-        .public()
+            .expect("static values are valid; qed")
+            .public()
     }
 
     #[test]
     fn validate_claim() {
-      new_test_ext().execute_with(|| {
-        let value: Vec<u8> = String::from("I am Satoshi Nakamoto").into();
+        new_test_ext().execute_with(|| {
+            let value: Vec<u8> = String::from("I am Satoshi Nakamoto").into();
 
-        // Create a new account pair and get the public key.
-        let satoshi_pair = account_pair("Satoshi");
-        let satoshi_public = satoshi_pair.public();
+            // Create a new account pair and get the public key.
+            let satoshi_pair = account_pair("Satoshi");
+            let satoshi_public = satoshi_pair.public();
 
-        // Encode and sign the claim message.
-        let claim = value.encode();
-        let satoshi_sig = satoshi_pair.sign(&claim);
-        
-        // Validate that "Satoshi" signed the message.
-        assert_ok!(DID::valid_signer(&satoshi_public, &satoshi_sig, &claim, &satoshi_public));
+            // Encode and sign the claim message.
+            let claim = value.encode();
+            let satoshi_sig = satoshi_pair.sign(&claim);
 
-        // Create a different public key to test the signature.
-        let bobtc_public = account_key("Bob");
-        
-        // Fail to validate that Bob signed the message.
-        assert_noop!(DID::check_signature(&satoshi_sig, &claim, &bobtc_public), Error::<Test>::BadSignature);
-    });
-  }
+            // Validate that "Satoshi" signed the message.
+            assert_ok!(DID::valid_signer(
+                &satoshi_public,
+                &satoshi_sig,
+                &claim,
+                &satoshi_public
+            ));
+
+            // Create a different public key to test the signature.
+            let bobtc_public = account_key("Bob");
+
+            // Fail to validate that Bob signed the message.
+            assert_noop!(
+                DID::check_signature(&satoshi_sig, &claim, &bobtc_public),
+                Error::<Test>::BadSignature
+            );
+        });
+    }
+
+    #[test]
+    fn validate_delegated_claim() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
+            // Predefined delegate type: "Sr25519VerificationKey2018"
+            let delegate_type: Vec<u8> = String::from("Sr25519VerificationKey2018").into();
+
+            let data: Vec<u8> = String::from("I am Satoshi Nakamoto").into();
+
+            let satoshi_public = account_key("Satoshi"); // Get Satoshi's public key.
+            let nakamoto_pair = account_pair("Nakamoto"); // Create a new delegate account pair.
+            let nakamoto_public = nakamoto_pair.public(); // Get delegate's public key.
+
+            // Add signer delegate
+            assert_ok!(
+                DID::add_delegate(
+                    Origin::signed(satoshi_public.clone()),
+                    satoshi_public.clone(),  // owner
+                    nakamoto_public.clone(), // new signer delgate
+                    delegate_type.clone(),   // "Sr25519VerificationKey2018"
+                    5
+                ) // valid for 5 blocks
+            );
+
+            let claim = data.encode();
+            let satoshi_sig = nakamoto_pair.sign(&claim); // Sign the data with delegate private key.
+
+            System::set_block_number(3);
+
+            // Validate that satoshi's delegate signed the message.
+            assert_ok!(DID::valid_signer(
+                &satoshi_public,
+                &satoshi_sig,
+                &claim,
+                &nakamoto_public
+            ));
+
+            System::set_block_number(6);
+
+            // Delegate became invalid at block 6
+            assert_noop!(
+                DID::valid_signer(&satoshi_public, &satoshi_sig, &claim, &nakamoto_public),
+                Error::<Test>::InvalidDelegate
+            );
+        });
+    }
+
+    #[test]
+    fn add_on_chain_and_revoke_off_chain_attribute() {
+        new_test_ext().execute_with(|| {
+            let name: Vec<u8> = String::from("MyAttribute").into();
+            let mut value = [1, 2, 3].to_vec();
+            let mut validity: u32 = 1000;
+
+            // Create a new account pair and get the public key.
+            let alice_pair = account_pair("Alice");
+            let alice_public = alice_pair.public();
+
+            // Add a new attribute to an identity. Valid until block 1 + 1000.
+            assert_ok!(DID::add_attribute(
+                Origin::signed(alice_public.clone()),
+                alice_public.clone(),
+                name.clone(),
+                value.clone(),
+                validity.clone().into()
+            ));
+
+            // Validate that the attribute exists and has not expired.
+            assert_ok!(DID::valid_attribute(&alice_public, &name, &value));
+
+            // Revoke attribute off-chain
+            // Set validity to 0 in order to revoke the attribute.
+            validity = 0;
+            value = [0].to_vec();
+            let mut encoded = name.encode();
+            encoded.extend(value.encode());
+            encoded.extend(validity.encode());
+            encoded.extend(alice_public.encode());
+
+            let revoke_sig = alice_pair.sign(&encoded);
+
+            let revoke_transaction = AttributeTransaction {
+                signature: revoke_sig,
+                name: name.clone(),
+                value: value.clone(),
+                validity,
+                signer: alice_public.clone(),
+                identity: alice_public.clone(),
+            };
+
+            // Revoke with off-chain signed transaction.
+            assert_ok!(DID::execute(
+                Origin::signed(alice_public.clone()),
+                revoke_transaction
+            ));
+
+            // Validate that the attribute was revoked.
+            assert_noop!(
+                DID::valid_attribute(&alice_public, &name, &[1, 2, 3].to_vec()),
+                Error::<Test>::InvalidAttribute
+            );
+        });
+    }
+
+    #[test]
+    fn attacker_to_transfer_identity_should_fail() {
+        new_test_ext().execute_with(|| {
+            // Attacker is not the owner
+            assert_eq!(
+                DID::identity_owner(&account_key("Alice")),
+                account_key("Alice")
+            );
+
+            // Transfer identity ownership to attacker
+            assert_noop!(
+                DID::change_owner(
+                    Origin::signed(account_key("BadBoy")),
+                    account_key("Alice"),
+                    account_key("BadBoy")
+                ),
+                Error::<Test>::NotOwner
+            );
+
+            // Attacker is not the owner
+            assert_noop!(
+                DID::is_owner(&account_key("Alice"), &account_key("BadBoy")),
+                Error::<Test>::NotOwner
+            );
+
+            // Verify that the owner never changed
+            assert_eq!(
+                DID::identity_owner(&account_key("Alice")),
+                account_key("Alice")
+            );
+        });
+    }
+
+    #[test]
+    fn attacker_add_new_delegate_should_fail() {
+        new_test_ext().execute_with(|| {
+            // BadBoy is an invalid delegate previous to attack.
+            assert_noop!(
+                DID::valid_delegate(
+                    &account_key("Alice"),
+                    &vec![7, 7, 7],
+                    &account_key("BadBoy")
+                ),
+                Error::<Test>::InvalidDelegate
+            );
+
+            // Attacker should fail to add delegate.
+            assert_noop!(
+                DID::add_delegate(
+                    Origin::signed(account_key("BadBoy")),
+                    account_key("Alice"),
+                    account_key("BadBoy"),
+                    vec![7, 7, 7],
+                    20
+                ),
+                Error::<Test>::NotOwner
+            );
+
+            // BadBoy is an invalid delegate.
+            assert_noop!(
+                DID::valid_delegate(
+                    &account_key("Alice"),
+                    &vec![7, 7, 7],
+                    &account_key("BadBoy")
+                ),
+                Error::<Test>::InvalidDelegate
+            );
+        });
+    }
 }
