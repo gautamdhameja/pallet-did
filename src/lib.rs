@@ -1,7 +1,11 @@
-// Copyright 2018-2020 Parity Technologies (UK) Ltd.
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Copyright 2017-2020 Parity Technologies (UK) Ltd.
+// You can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// You should have received a copy of the GNU General Public License
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 // This pallet is based on ERC-1056
 
 //! # DID Pallet
@@ -314,7 +318,7 @@ decl_module! {
 decl_event!(
   pub enum Event<T> 
   where 
-	<T as system::Trait>::AccountId,
+  <T as system::Trait>::AccountId,
   <T as system::Trait>::BlockNumber,
   <T as Trait>::Signature
   {
