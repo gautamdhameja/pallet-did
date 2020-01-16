@@ -17,6 +17,70 @@ Some of the inherited benefits of self-sovereign identity are:
 
 _Decentralized identifiers (DIDs) are a new type of identifier to provide verifiable, decentralized digital identity. These new identifiers are designed to enable the controller of a DID to prove control over it and to be implemented __independently__ of any __centralized registry, identity provider, or certificate authority__. DIDs are URLs that relate a DID subject to a DID document allowing trustable interactions with that subject. DID documents are simple documents describing how to use that specific DID. Each DID document can express cryptographic material, verification methods, or service endpoints, which provide a set of mechanisms enabling a DID controller to prove control of the DID. Service endpoints enable trusted interactions with the DID subject._  - [DID - W3C Community Contributor](https://w3c-ccg.github.io/did-spec/)
 
+## Tests
+
+Execute module tests
+
+```bash
+cargo test -p pallet-did
+```
+
+## About This Pallet
+
+This registry allows a regular key pair delegating signing for various purposes to externally managed key pairs. This allows an account or smart contract to be represented, both on-chain as well as off-chain or in payment channels through temporary or permanent delegates.
+
+### Identity Identifier
+
+Any account regardless of whether it's a key pair or a smart contract, is considered to be an account identifier. An identity needs no registration.
+
+### Identity Ownership
+
+Each identity has a single address which maintains ultimate control over it. By default, each identity is controlled by itself. 
+There is only ever a single identity owner. More advanced ownership models could be managed through a multi-signature account.
+
+#### Looking up Identity Ownership
+
+Ownership of identity is verified by calling the `identity_owner(identity: &T::AccountId)` function. This returns the address of the current Identity Owner.
+
+#### Changing Identity Ownership
+
+The account owner can replace themselves at any time, by calling the dispatchable `change_owner(origin, identity: T::AccountId, new_owner: T::AccountId)` function.
+
+### Delegates
+
+Delegates are addresses that are delegated for a specific time to perform a function on behalf of an identity.
+
+#### Validity
+
+Delegates expire. The expiration time is application specific and dependent on the security requirements of the identity owner.
+Validity is set using the number of blocks from the time that adding the delegate is set.
+
+#### Looking up a Delegate
+
+You can check to see if an address is a delegate for an identity using the `valid_delegate(identity: &T::AccountId, delegate_type: &Vec<u8>, delegate: &T::AccountId)` function. It depends if the address is a valid delegate of the given type.
+
+#### Adding a Delegate
+
+An identity can assign multiple delegates to manage signing on their behalf for specific purposes.
+The account owner can call the `add_delegate(origin, identity: T::AccountId, delegate: T::AccountId, delegate_type: Vec<u8>, valid_for: T::BlockNumber)` function.
+
+#### Revoking a Delegate
+
+A delegate may be manually revoked by calling the `revoke_delegate(origin, identity: T::AccountId, delegate_type: Vec<u8>, delegate: T::AccountId)` function.
+
+### Adding Attributes
+
+These attributes are set using the `add_attribute(origin, identity: T::AccountId, name: Vec<u8>, value: Vec<u8>, valid_for: T::BlockNumber)` function.
+
+### Revoking Attributes
+
+These attributes are revoked using the `revoke_attribute(origin, identity: T::AccountId, name: Vec<u8>)` function.
+
+#### Off-chain Attributes
+
+An identity may need to publish some information that is only needed off-chain but still requires the security benefits of using a blockchain.
+This can be done by signing an off-chain transaction with the `AttributeTransaction` structure and updating it on-chain by executing the `execute(origin, transaction: AttributeTransaction<T::Signature, T::AccountId>)` function.
+
 ## DID Document
 
 _A set of data that describes the subject of a DID, including mechanisms, such as public keys and pseudonymous biometrics, that the DID subject can use to authenticate itself and prove their association with the DID. A DID Document may also contain other attributes or claims describing the subject. These documents are graph-based data structures that are typically expressed using JSON-LD, but may be expressed using other compatible graph-based data formats._ [DID - Documents](https://w3c-ccg.github.io/did-spec/#dfn-did-document)
@@ -123,15 +187,3 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
    ]
 }
 ```
-
-## Registry Test
-
-Execute module tests
-
-```bash
-cargo test -p pallet-did
-```
-
-## About This Pallet
-
-[TODO]
