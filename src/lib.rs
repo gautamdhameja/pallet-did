@@ -84,10 +84,10 @@ use frame_support::{
 use sp_runtime::traits::{Hash, IdentifyAccount, Member, Verify};
 use sp_std::{prelude::*, vec::Vec};
 use system::ensure_signed;
+use sp_core::RuntimeDebug;
 
 /// Attributes or properties that make an identity.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct Attribute<BlockNumber, Moment> {
     pub name: Vec<u8>,
     pub value: Vec<u8>,
@@ -97,8 +97,7 @@ pub struct Attribute<BlockNumber, Moment> {
 }
 
 /// Off-chain signed transaction.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone, Encode, Decode, Hash)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone, Encode, Decode, Hash, RuntimeDebug)]
 pub struct AttributeTransaction<Signature, AccountId> {
     pub signature: Signature,
     pub name: Vec<u8>,
@@ -110,7 +109,7 @@ pub struct AttributeTransaction<Signature, AccountId> {
 
 pub trait Trait: system::Trait + timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type Public: IdentifyAccount<AccountId = Self::AccountId> + Clone;
+    type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type Signature: Verify<Signer = Self::Public> + Member + Decode + Encode;
 }
 

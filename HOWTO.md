@@ -11,9 +11,8 @@ We first add our newly-created crate as a dependency in the node's runtime Cargo
 
 [dependencies.pallet-did]
 default-features = false
-path = 'https://github.com/substrate-developer-hub/pallet-did'
+git = 'https://github.com/substrate-developer-hub/pallet-did'
 package = 'pallet-did'
-rev = '92cd623a7186065937744eb24533d9acc609221b'
 version = '2.0.0'
 
 
@@ -28,10 +27,13 @@ std = [
 Next we will update `my-node/runtime/src/lib.rs` to actually use our new runtime pallet, by adding a trait implementation with our pallet_did and add it in our construct_runtime! macro.
 
 ``` rust
+// add this import at the top
+use sp_runtime::MultiSigner;
+
 // add the following code block
 impl pallet_did::Trait for Runtime {
   type Event = Event;
-  type Public = AccountId;
+  type Public = MultiSigner;
   type Signature = Signature;
 
 }
@@ -65,5 +67,5 @@ Before you release your pallet, you should check that it can:
 2. Pass your tests:
 
     ```
-    cargo test
+    cargo test -p pallet-did
     ```
