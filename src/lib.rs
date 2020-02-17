@@ -156,8 +156,7 @@ decl_module! {
             }
             // Save the update time and block.
             <UpdatedBy<T>>::insert(
-                &identity,
-                (who.clone(), now_block_number.clone(), now_timestamp),
+                &identity, (&who, &now_block_number, &now_timestamp),
             );
             Self::deposit_event(RawEvent::OwnerChanged(
                 identity,
@@ -165,7 +164,6 @@ decl_module! {
                 new_owner,
                 now_block_number,
             ));
-
             Ok(())
         }
 
@@ -191,8 +189,7 @@ decl_module! {
             let validity = now_block_number.clone() + valid_for.clone();
 
             <DelegateOf<T>>::insert(
-                (identity.clone(), delegate_type.clone(), delegate.clone()),
-                validity.clone(),
+                (&identity, &delegate_type, &delegate), &validity,
             );
             <UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
             Self::deposit_event(RawEvent::DelegateAdded(
@@ -202,7 +199,6 @@ decl_module! {
                 validity,
                 valid_for,
             ));
-
             Ok(())
         }
 
@@ -223,12 +219,10 @@ decl_module! {
 
             // Update only the validity period to revoke the delegate.
             <DelegateOf<T>>::mutate(
-                (identity.clone(), delegate_type.clone(), delegate.clone()),
-                |b| *b = Some(now_block_number.clone()),
+                (&identity, &delegate_type, &delegate), |b| *b = Some(now_block_number.clone()),
             );
             <UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
             Self::deposit_event(RawEvent::DelegateRevoked(identity, delegate_type, delegate));
-
             Ok(())
         }
 
@@ -247,7 +241,6 @@ decl_module! {
 
             Self::create_attribute(who, &identity, &name, &value, &valid_for)?;
             Self::deposit_event(RawEvent::AttributeAdded(identity, name, valid_for));
-
             Ok(())
         }
 
@@ -264,7 +257,6 @@ decl_module! {
                 name,
                 <system::Module<T>>::block_number(),
             ));
-
             Ok(())
         }
 
@@ -278,17 +270,16 @@ decl_module! {
             let result = Self::attribute_and_id(&identity, &name);
 
             match result {
-                Some((_, id)) => <AttributeOf<T>>::remove((identity.clone(), id)),
+                Some((_, id)) => <AttributeOf<T>>::remove((&identity, &id)),
                 None => return Err(Error::<T>::AttributeRemovalFailed.into()),
             }
 
             <UpdatedBy<T>>::insert(
                 &identity,
-                (who, now_block_number.clone(), <timestamp::Module<T>>::now()),
+                (&who, &now_block_number, <timestamp::Module<T>>::now()),
             );
 
             Self::deposit_event(RawEvent::AttributeDeleted(identity, name, now_block_number));
-
             Ok(())
         }
 
@@ -366,7 +357,7 @@ impl<T: Trait> Module<T> {
     /// Validates if a delegate belongs to an identity and it has not expired.
     pub fn valid_delegate(
         identity: &T::AccountId,
-        delegate_type: &Vec<u8>,
+        delegate_type: &[u8],
         delegate: &T::AccountId,
     ) -> DispatchResult {
         ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
@@ -381,16 +372,16 @@ impl<T: Trait> Module<T> {
     /// Validates that a delegate exists for specific purpose and remains valid at this block high.
     pub fn valid_listed_delegate(
         identity: &T::AccountId,
-        delegate_type: &Vec<u8>,
+        delegate_type: &[u8],
         delegate: &T::AccountId,
     ) -> DispatchResult {
         ensure!(
-            <DelegateOf<T>>::exists((identity.clone(), delegate_type.clone(), delegate.clone())),
+            <DelegateOf<T>>::exists((&identity, delegate_type, &delegate)),
             Error::<T>::InvalidDelegate
         );
 
         let validity =
-            Self::delegate_of((identity.clone(), delegate_type.clone(), delegate.clone()));
+            Self::delegate_of((identity, delegate_type, delegate));
         match validity > Some(<system::Module<T>>::block_number()) {
             true => Ok(()),
             false => Err(Error::<T>::InvalidDelegate.into()),
@@ -417,15 +408,8 @@ impl<T: Trait> Module<T> {
         msg: &[u8],
         signer: &T::AccountId,
     ) -> DispatchResult {
-        // Predefined signer delegate type: "Sr25519VerificationKey2018"
-        let delegate_type: Vec<u8> = [
-            83, 114, 50, 53, 53, 49, 57, 86, 101, 114, 105, 102, 105, 99, 97, 116, 105, 111, 110,
-            75, 101, 121, 50, 48, 49, 56,
-        ]
-        .to_vec();
-
         // Owner or a delegate signer.
-        Self::valid_delegate(&identity, &delegate_type, &signer)?;
+        Self::valid_delegate(&identity, b"x25519VerificationKey2018", &signer)?;
         Self::check_signature(&signature, &msg, &signer)
     }
 
@@ -439,32 +423,32 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         let now_timestamp = <timestamp::Module<T>>::now();
         let now_block_number = <system::Module<T>>::block_number();
-        let mut nonce = Self::nonce_of((identity.clone(), name.clone()));
+        let mut nonce = Self::nonce_of((&identity, &name));
         let validity = now_block_number + *valid_for;
 
         // Used for first time attribute creation
-        let lookup_nonce = match nonce.clone() {
-            0u64 => 0, // prevents intialization panic
-            _ => nonce.clone() - 1u64,
+        let lookup_nonce = match &nonce {
+            0 => 0, // prevents intialization panic
+            _ => &nonce - 1,
         };
 
         let id = (identity, name, lookup_nonce).using_encoded(<T as system::Trait>::Hashing::hash);
 
-        if <AttributeOf<T>>::exists((identity.clone(), id.clone())) {
+        if <AttributeOf<T>>::exists((&identity, &id)) {
             Err(Error::<T>::AttributeCreationFailed.into())
         } else {
             let new_attribute = Attribute {
-                name: name.clone(),
-                value: value.clone(),
+                name: (&name).to_vec(),
+                value: (&value).to_vec(),
                 validity,
                 creation: now_timestamp,
                 nonce: nonce.clone(),
             };
 
-            nonce = nonce.checked_add(1).ok_or(Error::<T>::Overflow)?; // prevent overflow panic
-
-            <AttributeOf<T>>::insert((identity.clone(), id), new_attribute);
-            <AttributeNonce<T>>::mutate((identity.clone(), name.clone()), |n| *n = nonce);
+            // Prevent panic overflow 
+            nonce = nonce.checked_add(1).ok_or(Error::<T>::Overflow)?;
+            <AttributeOf<T>>::insert((&identity, &id), new_attribute);
+            <AttributeNonce<T>>::mutate((&identity, &name), |n| *n = nonce);
             <UpdatedBy<T>>::insert(
                 identity,
                 (
@@ -488,7 +472,7 @@ impl<T: Trait> Module<T> {
         match result {
             Some((mut attribute, id)) => {
                 attribute.validity = <system::Module<T>>::block_number();
-                <AttributeOf<T>>::mutate((identity.clone(), id), |a| *a = attribute);
+                <AttributeOf<T>>::mutate((&identity, id), |a| *a = attribute);
             }
             None => return Err(Error::<T>::AttributeResetFailed.into()),
         }
@@ -532,24 +516,21 @@ impl<T: Trait> Module<T> {
         identity: &T::AccountId,
         name: &Vec<u8>,
     ) -> Option<(Attribute<T::BlockNumber, T::Moment>, T::Hash)> {
-        let nonce = Self::nonce_of((identity.clone(), name.clone()));
+        let nonce = Self::nonce_of((&identity, &name));
 
         // Used for first time attribute creation
-        let lookup_nonce = match nonce.clone() {
+        let lookup_nonce = match nonce {
             0u64 => 0, // prevents intialization panic
             _ => nonce - 1u64,
         };
 
         // Looks up for the existing attribute.
         // Needs to use actual attribute nonce -1.
-        let id = (identity.clone(), name.clone(), lookup_nonce)
+        let id = (&identity, name, lookup_nonce)
             .using_encoded(<T as system::Trait>::Hashing::hash);
 
-        if <AttributeOf<T>>::exists((identity.clone(), id.clone())) {
-            Some((
-                Self::attribute_of((identity.clone(), id.clone())),
-                id.clone(),
-            ))
+        if <AttributeOf<T>>::exists((&identity, &id)) {
+            Some((Self::attribute_of((identity, id)), id))
         } else {
             None
         }
@@ -603,7 +584,6 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use std::string::String;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -676,7 +656,7 @@ mod tests {
     #[test]
     fn validate_claim() {
         new_test_ext().execute_with(|| {
-            let value: Vec<u8> = String::from("I am Satoshi Nakamoto").into();
+            let value = b"I am Satoshi Nakamoto".to_vec();
 
             // Create a new account pair and get the public key.
             let satoshi_pair = account_pair("Satoshi");
@@ -711,9 +691,8 @@ mod tests {
             System::set_block_number(1);
 
             // Predefined delegate type: "Sr25519VerificationKey2018"
-            let delegate_type: Vec<u8> = String::from("Sr25519VerificationKey2018").into();
-
-            let data: Vec<u8> = String::from("I am Satoshi Nakamoto").into();
+            let delegate_type = b"x25519VerificationKey2018".to_vec();
+            let data = b"I am Satoshi Nakamoto".to_vec();
 
             let satoshi_public = account_key("Satoshi"); // Get Satoshi's public key.
             let nakamoto_pair = account_pair("Nakamoto"); // Create a new delegate account pair.
@@ -756,7 +735,7 @@ mod tests {
     #[test]
     fn add_on_chain_and_revoke_off_chain_attribute() {
         new_test_ext().execute_with(|| {
-            let name: Vec<u8> = String::from("MyAttribute").into();
+            let name = b"MyAttribute".to_vec();
             let mut value = [1, 2, 3].to_vec();
             let mut validity: u32 = 1000;
 

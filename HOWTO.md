@@ -35,7 +35,6 @@ impl pallet_did::Trait for Runtime {
   type Event = Event;
   type Public = MultiSigner;
   type Signature = Signature;
-
 }
 
 // --snip--
