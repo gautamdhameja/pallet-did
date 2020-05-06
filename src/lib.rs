@@ -1,4 +1,4 @@
-// Copyright 2017-2020 Parity Technologies (UK) Ltd.
+// Copyright 2019-2020 Parity Technologies (UK) Ltd.
 // You can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
@@ -79,13 +79,13 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, 
-    dispatch::DispatchResult, ensure, StorageMap
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, StorageMap,
 };
-use sp_runtime::traits::{Hash, IdentifyAccount, Member, Verify};
+use sp_core::RuntimeDebug;
+use sp_io::hashing::blake2_256;
+use sp_runtime::traits::{IdentifyAccount, Member, Verify};
 use sp_std::{prelude::*, vec::Vec};
 use system::ensure_signed;
-use sp_core::RuntimeDebug;
 
 /// Attributes or properties that make an identity.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, RuntimeDebug)]
@@ -98,7 +98,7 @@ pub struct Attribute<BlockNumber, Moment> {
 }
 
 /// Off-chain signed transaction.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Default, Clone, Encode, Decode, Hash, RuntimeDebug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, RuntimeDebug)]
 pub struct AttributeTransaction<Signature, AccountId> {
     pub signature: Signature,
     pub name: Vec<u8>,
@@ -118,21 +118,16 @@ decl_storage! {
     trait Store for Module<T: Trait> as DID {
         /// Identity delegates stored by type.
         /// Delegates are only valid for a specific period defined as blocks number.
-        pub DelegateOf get(delegate_of): 
-                map hasher(twox_64_concat) (T::AccountId, Vec<u8>, T::AccountId) => Option<T::BlockNumber>;
+        pub DelegateOf get(delegate_of): map hasher(blake2_128_concat) (T::AccountId, Vec<u8>, T::AccountId) => Option<T::BlockNumber>;
         /// The attributes that belong to an identity.
         /// Attributes are only valid for a specific period defined as blocks number.
-        pub AttributeOf get(attribute_of): 
-                map hasher(twox_64_concat) (T::AccountId, T::Hash) => Attribute<T::BlockNumber, T::Moment>;
+        pub AttributeOf get(attribute_of): map hasher(blake2_128_concat) (T::AccountId, [u8; 32]) => Attribute<T::BlockNumber, T::Moment>;
         /// Attribute nonce used to generate a unique hash even if the attribute is deleted and recreated.
-        pub AttributeNonce get(nonce_of): 
-                map hasher(twox_64_concat) (T::AccountId, Vec<u8>) => u64;
+        pub AttributeNonce get(nonce_of): map hasher(twox_64_concat) (T::AccountId, Vec<u8>) => u64;
         /// Identity owner.
-        pub OwnerOf get(owner_of): 
-                map hasher(twox_64_concat) T::AccountId => Option<T::AccountId>;
+        pub OwnerOf get(owner_of): map hasher(blake2_128_concat) T::AccountId => Option<T::AccountId>;
         /// Tracking the latest identity update.
-        pub UpdatedBy get(updated_by): 
-                map hasher(twox_64_concat) T::AccountId => (T::AccountId, T::BlockNumber, T::Moment);
+        pub UpdatedBy get(updated_by): map hasher(blake2_128_concat) T::AccountId => (T::AccountId, T::BlockNumber, T::Moment);
     }
 }
 
@@ -142,6 +137,7 @@ decl_module! {
 
       fn deposit_event() = default;
         /// Transfers ownership of an identity.
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
         pub fn change_owner(
             origin,
             identity: T::AccountId,
@@ -174,6 +170,7 @@ decl_module! {
         }
 
         /// Creates a new delegate with an expiration period and for a specific purpose.
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
         pub fn add_delegate(
             origin,
             identity: T::AccountId,
@@ -192,7 +189,7 @@ decl_module! {
 
             let now_timestamp = <timestamp::Module<T>>::now();
             let now_block_number = <system::Module<T>>::block_number();
-            let validity = now_block_number.clone() + valid_for.clone();
+            let validity = now_block_number + valid_for;
 
             <DelegateOf<T>>::insert(
                 (&identity, &delegate_type, &delegate), &validity,
@@ -209,6 +206,7 @@ decl_module! {
         }
 
         /// Revokes an identity's delegate by setting its expiration to the current block number.
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
         pub fn revoke_delegate(
             origin,
             identity: T::AccountId,
@@ -234,6 +232,7 @@ decl_module! {
 
         /// Creates a new attribute as part of an identity.
         /// Sets its expiration period.
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
         pub fn add_attribute(
             origin,
             identity: T::AccountId,
@@ -252,6 +251,7 @@ decl_module! {
 
         /// Revokes an attribute/property from an identity.
         /// Sets its expiration period to the actual block number.
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
         pub fn revoke_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
@@ -267,6 +267,7 @@ decl_module! {
         }
 
         /// Removes an attribute from an identity. This attribute/property becomes unavailable.
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
         pub fn delete_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
@@ -290,6 +291,7 @@ decl_module! {
         }
 
         /// Executes off-chain signed transaction.
+        #[weight = frame_support::weights::SimpleDispatchInfo::default()]
         pub fn execute(
             origin,
             transaction: AttributeTransaction<T::Signature, T::AccountId>,
@@ -375,7 +377,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Validates that a delegate exists for specific purpose and remains valid at this block high.
+    /// Validates that a delegate contains_key for specific purpose and remains valid at this block high.
     pub fn valid_listed_delegate(
         identity: &T::AccountId,
         delegate_type: &[u8],
@@ -386,8 +388,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InvalidDelegate
         );
 
-        let validity =
-            Self::delegate_of((identity, delegate_type, delegate));
+        let validity = Self::delegate_of((identity, delegate_type, delegate));
         match validity > Some(<system::Module<T>>::block_number()) {
             true => Ok(()),
             false => Err(Error::<T>::InvalidDelegate.into()),
@@ -438,7 +439,7 @@ impl<T: Trait> Module<T> {
             _ => &nonce - 1,
         };
 
-        let id = (identity, name, lookup_nonce).using_encoded(<T as system::Trait>::Hashing::hash);
+        let id = (&identity, name, lookup_nonce).using_encoded(blake2_256);
 
         if <AttributeOf<T>>::contains_key((&identity, &id)) {
             Err(Error::<T>::AttributeCreationFailed.into())
@@ -451,7 +452,7 @@ impl<T: Trait> Module<T> {
                 nonce: nonce.clone(),
             };
 
-            // Prevent panic overflow 
+            // Prevent panic overflow
             nonce = nonce.checked_add(1).ok_or(Error::<T>::Overflow)?;
             <AttributeOf<T>>::insert((&identity, &id), new_attribute);
             <AttributeNonce<T>>::mutate((&identity, &name), |n| *n = nonce);
@@ -473,7 +474,7 @@ impl<T: Trait> Module<T> {
         identity: &T::AccountId,
         name: &Vec<u8>,
     ) -> DispatchResult {
-        // If the attribute exists, the latest valid block is set to the current block.
+        // If the attribute contains_key, the latest valid block is set to the current block.
         let result = Self::attribute_and_id(identity, name);
         match result {
             Some((mut attribute, id)) => {
@@ -521,7 +522,7 @@ impl<T: Trait> Module<T> {
     pub fn attribute_and_id(
         identity: &T::AccountId,
         name: &Vec<u8>,
-    ) -> Option<(Attribute<T::BlockNumber, T::Moment>, T::Hash)> {
+    ) -> Option<(Attribute<T::BlockNumber, T::Moment>, [u8; 32])> {
         let nonce = Self::nonce_of((&identity, &name));
 
         // Used for first time attribute creation
@@ -532,8 +533,7 @@ impl<T: Trait> Module<T> {
 
         // Looks up for the existing attribute.
         // Needs to use actual attribute nonce -1.
-        let id = (&identity, name, lookup_nonce)
-            .using_encoded(<T as system::Trait>::Hashing::hash);
+        let id = (&identity, name, lookup_nonce).using_encoded(blake2_256);
 
         if <AttributeOf<T>>::contains_key((&identity, &id)) {
             Some((Self::attribute_of((identity, id)), id))
@@ -590,7 +590,6 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
-    use pallet_balances;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -624,7 +623,7 @@ mod tests {
         type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
         type ModuleToIndex = ();
-        type AccountData = pallet_balances::AccountData<u64>;
+        type AccountData = ();
         type OnNewAccount = ();
         type OnKilledAccount = ();
     }
@@ -762,7 +761,7 @@ mod tests {
                 validity.clone().into()
             ));
 
-            // Validate that the attribute exists and has not expired.
+            // Validate that the attribute contains_key and has not expired.
             assert_ok!(DID::valid_attribute(&alice_public, &name, &value));
 
             // Revoke attribute off-chain
