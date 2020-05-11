@@ -1,6 +1,6 @@
 [package]
 name = "pallet-did"
-version = '2.0.0-alpha.6'
+version = '2.0.0-alpha.7'
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 
@@ -55,7 +55,6 @@ tag = 'v2.0.0-alpha.7'
 [dependencies.sp-std]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-version = '2.0.0-alpha.6'
 tag = 'v2.0.0-alpha.7'
 
 [dependencies.timestamp]
