@@ -2,6 +2,8 @@
 
 The DID pallet provides functionality for DIDs management. It uses a universal identity registry where all the required data is associated with an address. It enables the possibility to create a portable, persistent,  privacy-protecting, and personal identity.
 
+_NOTE: This pallet is intended for demonstration purposes and is not audited or ready for production use._
+
 ## Self-Sovereign Identity
 
 A decentralized identity or self-sovereign identity is a new approach where no one but you own or control the state of your digital identity.
