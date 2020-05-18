@@ -17,7 +17,7 @@ We first add our newly-created crate as a dependency in the node's runtime Cargo
 default-features = false
 git = 'https://github.com/substrate-developer-hub/pallet-did'
 package = 'pallet-did'
-version = '2.0.0-alpha.8'
+tag = '2.0.0-alpha.8'
 
 
 # toward the bottom
