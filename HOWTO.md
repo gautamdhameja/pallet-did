@@ -3,7 +3,7 @@
 With our pallet now compiling and passing it's tests, we're ready to add it to our node.
 
 ```
-git clone -b v2.0.0-alpha.7 --depth 1 https://github.com/substrate-developer-hub/substrate-node-template
+git clone -b v2.0.0-alpha.8 --depth 1 https://github.com/substrate-developer-hub/substrate-node-template
 ```
 
 We first add our newly-created crate as a dependency in the node's runtime Cargo.toml. Then we tell the pallet to only build its std feature when the runtime itself does, as follows:
@@ -17,7 +17,7 @@ We first add our newly-created crate as a dependency in the node's runtime Cargo
 default-features = false
 git = 'https://github.com/substrate-developer-hub/pallet-did'
 package = 'pallet-did'
-version = '2.0.0-alpha.7'
+version = '2.0.0-alpha.8'
 
 
 # toward the bottom
