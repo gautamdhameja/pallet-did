@@ -94,18 +94,18 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
 ### Substrate
 
 ```JSON
-{  
+{
    "@context":"https://w3id.org/did/v1",
    "id":"did:substrate:5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX",
-   "publicKeys":[  
-      {  
+   "publicKeys":[
+      {
          "id":"did:substrate:5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX#owner",
          "owner":"did:substrate:5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX",
          "type":"Secp256k1VerificationKey2018",
          "publicKeyHex":"e43a60dbfc251a3a835b45b172bcb49243ed56f820ca89a1c746143c1ab9565d",
          "address":"5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX"
       },
-      {  
+      {
          "id":"did:substrate:5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX#signingKey#delegate-1",
          "type":"Sr25519VerificationKey2018",
          "publicKeyHex":"dea36bf1a0c198afd259633c2e70b502b19577cc5133760ac569ea6fb4d3b977",
@@ -126,7 +126,7 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
       }
    ],
    "authentication":[
-      {  
+      {
          "type":"Secp256k1SignatureAuthentication2018",
          "publicKey":"did:substrate:5HDx7jPsiED6n47eNfERrBBRHZb59jVW6UMZZMTSBpikzvhX#owner",
       }
@@ -138,19 +138,19 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
 ### uPort
 
 ```JSON
-{  
+{
    "@context":"https://w3id.org/did/v1",
    "id":"did:ethr:0xb9c5714089478a327f09197987f16f9e5d936e8a",
-   "publicKey":[  
-      {  
+   "publicKey":[
+      {
          "id":"did:ethr:0xb9c5714089478a327f09197987f16f9e5d936e8a#owner",
          "type":"Secp256k1VerificationKey2018",
          "owner":"did:ethr:0xb9c5714089478a327f09197987f16f9e5d936e8a",
          "ethereumAddress":"0xb9c5714089478a327f09197987f16f9e5d936e8a"
       }
    ],
-   "authentication":[  
-      {  
+   "authentication":[
+      {
          "type":"Secp256k1SignatureAuthentication2018",
          "publicKey":"did:ethr:0xb9c5714089478a327f09197987f16f9e5d936e8a#owner"
       }
@@ -161,28 +161,28 @@ _A set of data that describes the subject of a DID, including mechanisms, such a
 ### 3Box
 
 ```JSON
-{  
+{
    "@context":"https://w3id.org/did/v1",
    "id":"did:3:zdpuAt4qH8ur3vHpVrP1xb7rtJuyVUVbRiGatkkVcJZRgAXDf",
-   "publicKeys":[  
-      {  
+   "publicKeys":[
+      {
          "id":"did:3:zdpuAt4qH8ur3vHpVrP1xb7rtJuyVUVbRiGatkkVcJZRgAXDf#signingKey",
          "type":"Secp256k1VerificationKey2018",
          "publicKeyHex":"03fdd57adec3d438ea237fe46b33ee1e016eda6b585c3e27ea66686c2ea5358479"
       },
-      {  
+      {
          "id":"did:3:zdpuAt4qH8ur3vHpVrP1xb7rtJuyVUVbRiGatkkVcJZRgAXDf#encryptionKey",
          "type":"Curve25519EncryptionPublicKey",
          "publicKeyBase64":"AtF8hCxh9h1zlExuOZutuw+tRzmk3zVdfA=="
       },
-      {  
+      {
          "id":"did:3:zdpuAt4qH8ur3vHpVrP1xb7rtJuyVUVbRiGatkkVcJZRgAXDf#managementKey",
          "type":"Secp256k1VerificationKey2018",
          "ethereumAddress":"0xb9c5714089478a327f09197987f16f9e5d936e8a"
       }
    ],
-   "authentication":[  
-      {  
+   "authentication":[
+      {
          "type":"Secp256k1SignatureAuthentication2018",
          "publicKey":"did:3:zdpuAt4qH8ur3vHpVrP1xb7rtJuyVUVbRiGatkkVcJZRgAXDf#signingKey"
       }

@@ -143,7 +143,7 @@ decl_module! {
 
       fn deposit_event() = default;
         /// Transfers ownership of an identity.
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn change_owner(
             origin,
             identity: T::AccountId,
@@ -176,7 +176,7 @@ decl_module! {
         }
 
         /// Creates a new delegate with an expiration period and for a specific purpose.
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn add_delegate(
             origin,
             identity: T::AccountId,
@@ -212,7 +212,7 @@ decl_module! {
         }
 
         /// Revokes an identity's delegate by setting its expiration to the current block number.
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn revoke_delegate(
             origin,
             identity: T::AccountId,
@@ -238,7 +238,7 @@ decl_module! {
 
         /// Creates a new attribute as part of an identity.
         /// Sets its expiration period.
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn add_attribute(
             origin,
             identity: T::AccountId,
@@ -257,7 +257,7 @@ decl_module! {
 
         /// Revokes an attribute/property from an identity.
         /// Sets its expiration period to the actual block number.
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn revoke_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
@@ -273,7 +273,7 @@ decl_module! {
         }
 
         /// Removes an attribute from an identity. This attribute/property becomes unavailable.
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn delete_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
@@ -297,7 +297,7 @@ decl_module! {
         }
 
         /// Executes off-chain signed transaction.
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn execute(
             origin,
             transaction: AttributeTransaction<T::Signature, T::AccountId>,
