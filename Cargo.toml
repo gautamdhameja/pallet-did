@@ -1,24 +1,12 @@
 [package]
 name = "pallet-did"
 version = '2.0.0-rc3'
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2018"
-
-[features]
-default = ['std']
-std = [
-    'serde',
-    'codec/std',
-    'frame-support/std',
-    'sp-runtime/std',
-    'sp-io/std',
-    'sp-std/std',
-    'system/std',
-    'timestamp/std',
-]
-
-[package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+description = 'Substrate Decentralized ID Pallet'
+edition = '2018'
+authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+homepage = 'https://substrate.dev'
+repository = 'https://github.com/paritytech/substrate/'
+license = 'Unlicense'
 
 [dependencies.serde]
 features = ['derive']
@@ -43,10 +31,9 @@ default-features = false
 tag = 'v2.0.0-rc3'
 version = '2.0.0-rc3'
 
-[dependencies.system]
+[dependencies.frame-system]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-package = 'frame-system'
 tag = 'v2.0.0-rc3'
 version = '2.0.0-rc3'
 
@@ -62,10 +49,9 @@ default-features = false
 tag = 'v2.0.0-rc3'
 version = '2.0.0-rc3'
 
-[dependencies.timestamp]
+[dependencies.pallet-timestamp]
 git = 'https://github.com/paritytech/substrate.git'
 default_features = false
-package = 'pallet-timestamp'
 tag = 'v2.0.0-rc3'
 version = '2.0.0-rc3'
 
@@ -74,3 +60,16 @@ git = 'https://github.com/paritytech/substrate.git'
 default-features = false
 tag = 'v2.0.0-rc3'
 version = '2.0.0-rc3'
+
+[features]
+default = ['std']
+std = [
+	'serde',
+	'codec/std',
+	'frame-support/std',
+	'sp-runtime/std',
+	'sp-io/std',
+	'sp-std/std',
+	'frame-system/std',
+	'pallet-timestamp/std',
+]
