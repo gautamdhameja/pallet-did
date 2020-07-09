@@ -361,11 +361,10 @@ impl<T: Trait> Module<T> {
     /// Get the identity owner if set.
     /// If never changed, returns the identity as its owner.
     pub fn identity_owner(identity: &T::AccountId) -> T::AccountId {
-        let owner = match Self::owner_of(identity) {
+        match Self::owner_of(identity) {
             Some(id) => id,
             None => identity.clone(),
-        };
-        owner
+        }
     }
 
     /// Validates if a delegate belongs to an identity and it has not expired.
