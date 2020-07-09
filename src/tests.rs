@@ -1,7 +1,7 @@
-use crate::{Error, mock::*, AttributeTransaction};
-use frame_support::{assert_ok, assert_noop};
-use sp_core::{Pair};
-use codec::{Encode};
+use crate::{mock::*, AttributeTransaction, Error};
+use codec::Encode;
+use frame_support::{assert_noop, assert_ok};
+use sp_core::Pair;
 
 #[test]
 fn validate_claim() {
