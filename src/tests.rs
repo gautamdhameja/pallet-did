@@ -99,7 +99,7 @@ fn add_on_chain_and_revoke_off_chain_attribute() {
             alice_public.clone(),
             name.clone(),
             value.clone(),
-            validity.clone().into()
+            Some(validity.clone().into())
         ));
 
         // Validate that the attribute contains_key and has not expired.
