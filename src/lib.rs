@@ -184,30 +184,21 @@ decl_module! {
             identity: T::AccountId,
             delegate: T::AccountId,
             delegate_type: Vec<u8>,
-            valid_for: T::BlockNumber,
+            valid_for: Option<T::BlockNumber>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            Self::is_owner(&identity, &who)?;
-            ensure!(who != delegate, Error::<T>::InvalidDelegate);
-            ensure!(
-                !Self::valid_listed_delegate(&identity, &delegate_type, &delegate).is_ok(),
-                Error::<T>::InvalidDelegate
-            );
             ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
+
+            Self::create_delegate( &who, &identity, &delegate, &delegate_type, valid_for)?;
 
             let now_timestamp = <pallet_timestamp::Module<T>>::now();
             let now_block_number = <frame_system::Module<T>>::block_number();
-            let validity = now_block_number + valid_for;
-
-            <DelegateOf<T>>::insert(
-                (&identity, &delegate_type, &delegate), &validity,
-            );
             <UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
+
             Self::deposit_event(RawEvent::DelegateAdded(
                 identity,
                 delegate_type,
                 delegate,
-                validity,
                 valid_for,
             ));
             Ok(())
@@ -325,7 +316,7 @@ decl_event!(
   <T as Trait>::Signature
   {
     OwnerChanged(AccountId, AccountId, AccountId, BlockNumber),
-    DelegateAdded(AccountId, Vec<u8>, AccountId, BlockNumber, BlockNumber),
+    DelegateAdded(AccountId, Vec<u8>, AccountId, Option<BlockNumber>),
     DelegateRevoked(AccountId, Vec<u8>, AccountId),
     AttributeAdded(AccountId,Vec<u8>, Option<BlockNumber>),
     AttributeRevoked(AccountId,Vec<u8>,BlockNumber),
@@ -400,6 +391,33 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    // Creates a new delegete for an account.
+    pub fn create_delegate(
+        who: &T::AccountId,
+        identity: &T::AccountId,
+        delegate: &T::AccountId,
+        delegate_type: &Vec<u8>,
+        valid_for: Option<T::BlockNumber>,
+    ) -> DispatchResult {
+        Self::is_owner(&identity, who)?;
+        ensure!(who != delegate, Error::<T>::InvalidDelegate);
+        ensure!(
+            !Self::valid_listed_delegate(identity, delegate_type, delegate).is_ok(),
+            Error::<T>::InvalidDelegate
+        );
+
+        let now_block_number = <frame_system::Module<T>>::block_number();
+        let validity: T::BlockNumber = match valid_for {
+            Some(blocks) => now_block_number + blocks,
+            None => u32::max_value().into(),
+        };
+
+        <DelegateOf<T>>::insert(
+            (&identity, delegate_type, delegate), &validity,
+        );
+        Ok(())
+    }
+
     /// Checks if a signature is valid. Used to validate off-chain transactions.
     pub fn check_signature(
         signature: &T::Signature,
@@ -442,7 +460,6 @@ impl<T: Trait> Module<T> {
             Some(blocks) => now_block_number + blocks,
             None => u32::max_value().into(),
         };
-        //let validity: T::BlockNumber  = u32::max_value().into(); //now_block_number + *valid_for;
 
         // Used for first time attribute creation
         let lookup_nonce = match &nonce {

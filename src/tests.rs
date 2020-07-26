@@ -55,7 +55,7 @@ fn validate_delegated_claim() {
                 satoshi_public.clone(),  // owner
                 nakamoto_public.clone(), // new signer delgate
                 delegate_type.clone(),   // "Sr25519VerificationKey2018"
-                5
+                Some(5)
             ) // valid for 5 blocks
         );
 
@@ -192,7 +192,7 @@ fn attacker_add_new_delegate_should_fail() {
                 account_key("Alice"),
                 account_key("BadBoy"),
                 vec![7, 7, 7],
-                20
+                Some(20)
             ),
             Error::<Test>::NotOwner
         );
