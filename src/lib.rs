@@ -80,11 +80,11 @@
 use codec::{Decode, Encode};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, StorageMap,
-	Parameter,
+	Parameter
 };
 use frame_system::{self as system, ensure_signed};
-use sp_core::RuntimeDebug;
-use sp_io::hashing::blake2_256;
+// use sp_core::RuntimeDebug;
+// use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify, MaybeDisplay,
 	Saturating};
 use sp_std::{prelude::*, vec::Vec, fmt::Debug};
@@ -95,7 +95,7 @@ use sp_std::{prelude::*, vec::Vec, fmt::Debug};
 // #[cfg(test)]
 // mod tests;
 
-const DELEGATE_TYPE_LEN: u32 = 64;
+const DELEGATE_TYPE_LEN: usize = 64;
 
 /// Attributes or properties that make an identity.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default)]
@@ -161,7 +161,6 @@ decl_error! {
 		DelegateTypeTooLong,
 		DIdAlreadyExist,
 		DIdNotExist,
-		InvalidDelegate,
 		NotOwner,
 
 		// ---
@@ -182,7 +181,7 @@ decl_storage! {
 		pub DIdStore get(fn did_store): map hasher(blake2_128_concat) T::DId => bool;
 
 		/// DId owner
-		pub OwnerOf get(fn owner_of): map hasher(blake2_128_concat) T::DId => Option<T::AccountId>;
+		pub OwnerOf get(fn owner_of): map hasher(blake2_128_concat) T::DId => T::AccountId;
 
 		/// The delegates of an identity. Only valid for a specific period as defined by block number.
 		pub DelegateOf get(fn delegate_of): double_map hasher(blake2_128_concat) T::DId,
@@ -209,11 +208,11 @@ decl_module! {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: `did` doesn't exist in the store yet
-			ensure!(!Self::did_store(did), Error::<T>::DIdAlreadyExist)?;
+			ensure!(!Self::did_store(&did), Error::<T>::DIdAlreadyExist);
 
 			// writes
 			<DIdStore<T>>::insert(&did, true);
-			<OwnerOf<T>>::insert(&did, Some(who));
+			<OwnerOf<T>>::insert(&did, &who);
 
 			// Emit event to notify DId is updated
 			Self::deposit_event(RawEvent::DIdRegistered(did, who));
@@ -226,12 +225,12 @@ decl_module! {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: `did` exists in the store
-			ensure!(Self::did_store(did), Error::<T>::DIdNotExist)?;
+			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
 			// check: `who` is the owner of the DId
-			ensure!(Self::owner_of(did).map_or(false, |o| o == who), Error::<T>::NotOwner)?;
+			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
 
 			// writes
-			<OwnerOf<T>>::insert(&did, Some(new_owner));
+			<OwnerOf<T>>::insert(&did, &new_owner);
 
 			// Emit event to notify DId is updated
 			Self::deposit_event(RawEvent::DIdOwnerChanged(did, new_owner));
@@ -247,16 +246,14 @@ decl_module! {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: `did` exists in the store
-			ensure!(Self::did_store(did), Error::<T>::DIdNotExist)?;
-			// check: `who` is the owner of the DId
-			ensure!(Self::owner_of(did).map_or(false, |o| o == who), Error::<T>::NotOwner)?;
-			// check: `who` cannot be the same as `delegate`
-			ensure!(who != delegate, Error::<T>::InvalidDelegate)?;
+			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
+			// check: the call is made by the DId owner
+			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_LEN, Error::<T>::DelegateTypeTooLong);
 
 			// writes
-			Self::upsert_delegate_execute(&did, &delegate_type, &delegate, &valid_for_offset);
+			Self::upsert_delegate_execute(&did, &delegate_type, &delegate, valid_for_offset);
 
 			// emit successful event
 			Self::deposit_event(RawEvent::DelegateUpserted(did, delegate_type, delegate, valid_for_offset));
@@ -271,11 +268,9 @@ decl_module! {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: `did` exists in the store
-			ensure!(Self::did_store(did), Error::<T>::DIdNotExist)?;
+			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
 			// check: `who` is the owner of the DId
-			ensure!(Self::owner_of(did).map_or(false, |o| o == who), Error::<T>::NotOwner)?;
-			// check: `who` cannot be the same as `delegate`
-			ensure!(who != delegate, Error::<T>::InvalidDelegate)?;
+			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_LEN, Error::<T>::DelegateTypeTooLong);
 
@@ -287,8 +282,8 @@ decl_module! {
 			Ok(())
 		}
 
-		/// Creates a new attribute as part of an identity.
-		/// Sets its expiration period.
+		// /// Creates a new attribute as part of an identity.
+		// /// Sets its expiration period.
 		// #[weight = 10000]
 		// pub fn add_attribute(
 		// 	origin,
@@ -305,8 +300,8 @@ decl_module! {
 		// 	Ok(())
 		// }
 
-		/// Revokes an attribute/property from an identity.
-		/// Sets its expiration period to the actual block number.
+		// /// Revokes an attribute/property from an identity.
+		// /// Sets its expiration period to the actual block number.
 		// #[weight = 10000]
 		// pub fn revoke_attribute(origin, identity: T::AccountId, name: Vec<u8>) -> DispatchResult {
 		// 	let who = ensure_signed(origin)?;
@@ -321,7 +316,7 @@ decl_module! {
 		// 	Ok(())
 		// }
 
-		/// Executes off-chain signed transaction.
+		// /// Executes off-chain signed transaction.
 		// #[weight = 10000]
 		// pub fn execute(
 		// 	origin,
@@ -351,13 +346,11 @@ impl<T: Trait> Module<T> {
 		if !Self::did_store(did) { return false }
 
 		// `delegate` is the DId owner
-		if let Some(owner) = Self::owner_of(did) {
-			if owner == delegate { return true }
-		}
+		if Self::owner_of(did) == *delegate  { return true }
 
-		let delegate_vec = Self::delegate_of((did, delegate_type));
-		match delegate_vec.find(|(acct, exp)| acct == delegate) {
-			Some((acct, exp)) => exp <= <frame_system::Module<T>>::block_number(),
+		let delegate_vec = Self::delegate_of(did, delegate_type);
+		match delegate_vec.iter().find(|(acct, _)| acct == delegate) {
+			Some((_, exp_opt)) => exp_opt.map_or(true, |e| e <= <frame_system::Module<T>>::block_number()),
 			None => false,
 		}
 	}
@@ -369,27 +362,38 @@ impl<T: Trait> Module<T> {
 		delegate: &T::AccountId,
 		valid_for_offset: Option<T::BlockNumber>,
 	) {
-		let delegate_vec = Self::delegate_of(did, delegate_type);
-
 		let new_exp_opt = valid_for_offset.map_or(None,
-			|offset| <frame_system::Module<T>>::block_number().saturating_add(offset));
+			|offset| Some(<frame_system::Module<T>>::block_number().saturating_add(offset)));
+
+		let mut acct_exist = false;
 
 		<DelegateOf<T>>::mutate(did, delegate_type, |vec| {
-			vec.filter_map( |(acct, orig_exp_opt)| if acct == delegate {
-				Some((acct, new_exp_opt))
-			} else {
-				Some((acct, orig_exp_opt))
-			});
+			// Check if there is existing acct, update that record
+			*vec = vec.into_iter()
+				.filter_map( |(acct, orig_exp_opt)| if acct == delegate {
+					acct_exist = true;
+					Some((acct.clone(), new_exp_opt))
+				} else {
+					Some((acct.clone(), *orig_exp_opt))
+				})
+				.collect::<Vec<_>>();
+
+			// No existing acct found, so insert a record
+			if !acct_exist {
+				vec.push((delegate.clone(), new_exp_opt));
+			}
 		});
 	}
 
 	pub fn revoke_delegate_execute(did: &T::DId, delegate_type: &Vec<u8>, delegate: &T::AccountId) {
 		<DelegateOf<T>>::mutate(did, delegate_type, |vec| {
-			vec.filter_map( |(acct, exp_opt)| if acct == delegate {
-				None
-			} else {
-				Some((acct, exp_opt))
-			})
+			*vec = vec.into_iter()
+				.filter_map( |(acct, exp_opt)| if acct == delegate {
+					None
+				} else {
+					Some((acct.clone(), *exp_opt))
+				})
+				.collect::<Vec<_>>();
 		});
 	}
 
