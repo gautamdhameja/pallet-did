@@ -1,16 +1,16 @@
 {
-  "DId": "AccountId",
+	"DId": "AccountId",
 	"Attribute": {
 		"name": "Vec<u8>",
 		"value": "Vec<u8>",
 		"valid_till": "Option<BlockNumber>",
 		"nonce": "u64"
 	},
-  "AttributeUpdateTx": {
-    "did": "DId",
-    "name": "Vec<u8>",
-    "value": "Vec<u8>",
-    "valid_till": "Option<BlockNumber>",
-    "signature": "Signature"
-  }
+	"AttributeUpdateTx": {
+		"did": "DId",
+		"name": "Vec<u8>",
+		"value": "Vec<u8>",
+		"valid_till": "Option<BlockNumber>",
+		"signature": "Signature"
+	}
 }
