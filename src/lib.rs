@@ -122,12 +122,22 @@ impl<T: Trait> fmt::Debug for AttributeUpdateTx<T> {
 }
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
-	type DId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord
-		+ Default + Encode + Decode;
+	type DId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Public: IdentifyAccount<AccountId = Self::AccountId>;
 	type Signature: Verify<Signer = Self::Public> + Member + Encode + Decode;
 }
+
+// self note: Not sure if implementing a From trait is the right approach,
+//   or is there a way to tell the compiler the asso type `T::DId` is going to be the same as
+//   T::AccountId ?
+// The following `impl` From yield another error if uncommented.
+
+// impl<T> From<<T as Trait>::DId> for <T as frame_system::Trait>::AccountId {
+// 	fn from(did: <T as Trait>::DId) -> Self {
+// 		()
+// 	}
+// }
 
 decl_event!(
 	pub enum Event<T> where
@@ -192,11 +202,22 @@ decl_module! {
 
 		/// This function registers a new DId. The DId must not existed before
 		#[weight = 10000]
-		pub fn register_did(origin, did: T::DId) -> DispatchResult {
+		pub fn register_did(origin, did: T::DId, message: Vec<u8>, signature: T::Signature) -> DispatchResult {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: `did` doesn't exist in the store yet
 			ensure!(!Self::did_store(&did), Error::<T>::DIdAlreadyExist);
+
+// error[E0277]: the trait bound `<T as frame_system::Trait>::AccountId: std::convert::From<<T as Trait>::DId>` is not satisfied
+//    --> src/lib.rs:206:53
+//     |
+// 206 |             ensure!(signature.verify(&message as &[u8], &did.into()), Error::<T>::InvalidSignature);
+//     |                                                              ^^^^ the trait `std::convert::From<<T as Trait>::DId>` is not implemented for `<T as frame_system::Trait>::AccountId`
+//     |
+//     = note: required because of the requirements on the impl of `std::convert::Into<<T as frame_system::Trait>::AccountId>` for `<T as Trait>::DId`
+
+			// Verify the signature is signed by did
+			ensure!(signature.verify(&message as &[u8], &did.into()), Error::<T>::InvalidSignature);
 
 			// writes
 			<DIdStore<T>>::insert(&did, true);
@@ -320,7 +341,7 @@ decl_module! {
 		// The main difference of this function and `upsert_attribute` is that this function allows the DId
 		//   owner or its delegate (with delegation_type OFFCHAIN_TX_DELEGATE_TYPE) to update the DId attribute.
 		#[weight = 10000]
-		pub fn execute(origin, tx: AttributeUpdateTx<T>) -> DispatchResult {
+		pub fn upsert_attribute_from_offchain_signature(origin, tx: AttributeUpdateTx<T>) -> DispatchResult {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: if signer is a valid delegate of the DId with specific delegation type
