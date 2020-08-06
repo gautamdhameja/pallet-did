@@ -85,7 +85,7 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify, MaybeDisplay,
 	Saturating};
-use sp_std::{prelude::*, vec::Vec, fmt::Debug};
+use sp_std::{prelude::*, vec::Vec, fmt, fmt::Debug};
 
 // #[cfg(test)]
 // mod mock;
@@ -98,7 +98,7 @@ const ATTR_NAME_MAX_LEN: usize = 64;
 pub const OFFCHAIN_TX_DELEGATE_TYPE: &[u8] = b"x25519VerificationKey2018";
 
 /// Attributes or properties that make an identity.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default, Debug)]
 pub struct Attribute<BlockNumber> {
 	pub name: Vec<u8>,
 	pub value: Vec<u8>,
@@ -113,6 +113,12 @@ pub struct AttributeUpdateTx<T: Trait> {
 	pub value: Vec<u8>,
 	pub valid_till: Option<T::BlockNumber>,
 	pub signature: T::Signature,
+}
+
+impl<T: Trait> Debug for AttributeUpdateTx<T> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.write_str("AttributeUpdateTx<T>")
+	}
 }
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -140,7 +146,7 @@ decl_event!(
 
 		AttributeUpserted(DId, Vec<u8>, Vec<u8>, Option<BlockNumber>),
 		AttributeRevoked(DId, Vec<u8>),
-		AttributeUpdateTxExecuted(AttributeUpdateTx<T>),
+		AttributeUpdateTxExecuted(AccountId, DId, Vec<u8>, Vec<u8>, Option<BlockNumber>),
 	}
 );
 
@@ -319,16 +325,17 @@ decl_module! {
 			let who = ensure_signed(origin)?;
 			// check: if signer is a valid delegate of the DId with specific delegation type
 			//   OFFCHAIN_TX_DELEGATE_TYPE
-			ensure!(Self::valid_delegate(&tx.did, OFFCHAIN_TX_DELEGATE_TYPE, who), Error::<T>::InvalidDelegate);
+			ensure!(Self::valid_delegate(&tx.did, OFFCHAIN_TX_DELEGATE_TYPE, &who), Error::<T>::InvalidDelegate);
 			// check: if the attribute name length is within the limit
 			ensure!(tx.name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 			// check: verify the signature is signed by `who`
-			ensure!(tx.signature.verify(Self::encode_aut(tx.clone()), who), Error::<T>::InvalidSignature);
+			ensure!(tx.signature.verify(&Self::encode_aut(&tx) as &[u8], &who), Error::<T>::InvalidSignature);
 
 			// write: update the DId attribute
 			Self::upsert_attribute_execute(&tx.did, &tx.name, &tx.value, tx.valid_till);
 
-			Self::deposit_event(RawEvent::AttributeUpdateTxExecuted(tx));
+			Self::deposit_event(RawEvent::AttributeUpdateTxExecuted(who, tx.did, tx.name,
+				tx.value, tx.valid_till));
 			Ok(())
 		}
 	}
@@ -364,7 +371,7 @@ impl<T: Trait> Module<T> {
 		true
 	}
 
-	pub fn encode_aut(tx: AttributeUpdateTx<T: Trait>) -> Vec<u8> {
+	pub fn encode_aut(tx: &AttributeUpdateTx<T>) -> Vec<u8> {
 		let mut encoded = tx.did.encode();
 		encoded.extend(tx.name.encode());
 		encoded.extend(tx.value.encode());
@@ -438,7 +445,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Revoke the attribute from DId
-  // It removes both the 2nd key and the value from <AttributeOf<T>> double map
+	// It removes both the 2nd key and the value from <AttributeOf<T>> double map
 	fn revoke_attribute_execute (did: &T::DId, name: &[u8]) {
 		<AttributeOf<T>>::remove(did, name);
 	}
