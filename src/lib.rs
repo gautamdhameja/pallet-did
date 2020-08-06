@@ -79,12 +79,12 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, StorageMap,
-	Parameter
+	decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+	StorageMap, Parameter
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify, MaybeDisplay,
-	Saturating};
+use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify,
+	MaybeDisplay, Saturating};
 use sp_std::{prelude::*, fmt, fmt::Debug};
 
 #[cfg(test)]
@@ -356,7 +356,8 @@ impl<T: Trait> Module<T> {
 
 		let delegate_vec = Self::delegate_of(did, delegate_type);
 		match delegate_vec.iter().find(|(acct, _)| acct == delegate) {
-			Some((_, exp_opt)) => exp_opt.map_or(true, |e| e <= <frame_system::Module<T>>::block_number()),
+			Some((_, exp_opt)) => exp_opt.map_or(true,
+				|valid_till| valid_till >= <frame_system::Module<T>>::block_number()),
 			None => false,
 		}
 	}
