@@ -97,6 +97,7 @@ use sp_std::{prelude::*, vec::Vec, fmt::Debug};
 
 const DELEGATE_TYPE_MAX_LEN: usize = 64;
 const ATTR_NAME_MAX_LEN: usize = 64;
+pub const OFFCHAIN_TX_DELEGATE_TYPE: &[u8] = b"x25519VerificationKey2018";
 
 /// Attributes or properties that make an identity.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default)]
@@ -107,18 +108,13 @@ pub struct Attribute<BlockNumber> {
 	pub nonce: u64,
 }
 
-// /// This is the attribute with a 32-char hash
-// pub type AttributedId<BlockNumber> = (Attribute<BlockNumber>, [u8; 32]);
-
-/// Off-chain signed transaction.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Default)]
-pub struct AttributeTransaction<Signature, AccountId> {
-	pub signature: Signature,
+pub struct AttributeUpdateTx<T: Trait> {
+	pub did: T::DId,
 	pub name: Vec<u8>,
 	pub value: Vec<u8>,
-	pub validity: u32,
-	pub signer: AccountId,
-	pub identity: AccountId,
+	pub valid_till: Option<T::BlockNumber>,
+	pub signature: T::Signature,
 }
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
@@ -133,7 +129,6 @@ decl_event!(
 	pub enum Event<T> where
 		<T as frame_system::Trait>::AccountId,
 		<T as frame_system::Trait>::BlockNumber,
-		// <T as Trait>::Signature,
 		<T as Trait>::DId,
 	{
 		// params order: DId, the owner
@@ -147,25 +142,19 @@ decl_event!(
 
 		AttributeUpserted(DId, Vec<u8>, Vec<u8>, Option<BlockNumber>),
 		AttributeRevoked(DId, Vec<u8>),
-
-		// ---
-
-		// AttributeTransactionExecuted(AttributeTransaction<Signature,AccountId>),
+		AttributeUpdateTxExecuted(AttributeUpdateTx<T>),
 	}
 );
 
 decl_error! {
 	pub enum Error for Module<T: Trait> {
+		AttrNameTooLong,
 		DelegateTypeTooLong,
 		DIdAlreadyExist,
 		DIdNotExist,
+		InvalidDelegate,
+		InvalidSignature,
 		NotOwner,
-		AttrNameTooLong,
-
-		// ---
-
-		// BadSignature,
-		// BadTransaction,
 	}
 }
 
@@ -293,7 +282,7 @@ decl_module! {
 			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
 			// check: the call is made by the DId owner
 			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
-			// check: the `delegate_type` length is within the limit
+			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
 			// writes
@@ -313,7 +302,7 @@ decl_module! {
 			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
 			// check: the call is made by the DId owner
 			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
-			// check: the `delegate_type` length is within the limit
+			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
 			// writes
@@ -323,24 +312,27 @@ decl_module! {
 			Ok(())
 		}
 
-		// /// Executes off-chain signed transaction.
-		// #[weight = 10000]
-		// pub fn execute(
-		// 	origin,
-		// 	transaction: AttributeTransaction<T::Signature, T::AccountId>,
-		// ) -> DispatchResult {
-		// 	let who = ensure_signed(origin)?;
+		/// Executes off-chain signed transaction.
+		// The main difference of this function and `upsert_attribute` is that this function allows the DId
+		//   owner or its delegate (with delegation_type OFFCHAIN_TX_DELEGATE_TYPE) to update the DId attribute.
+		#[weight = 10000]
+		pub fn execute(origin, tx: AttributeUpdateTx<T>) -> DispatchResult {
+			// check: this is a signed tx
+			let who = ensure_signed(origin)?;
+			// check: if signer is a valid delegate of the DId with specific delegation type
+			//   OFFCHAIN_TX_DELEGATE_TYPE
+			ensure!(Self::valid_delegate(&tx.did, OFFCHAIN_TX_DELEGATE_TYPE, who), Error::<T>::InvalidDelegate);
+			// check: if the attribute name length is within the limit
+			ensure!(tx.name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
+			// check: verify the signature is signed by `who`
+			ensure!(tx.signature.verify(Self::encode_aut(tx.clone()), who), Error::<T>::InvalidSignature);
 
-		// 	let mut encoded = transaction.name.encode();
-		// 	encoded.extend(transaction.value.encode());
-		// 	encoded.extend(transaction.validity.encode());
-		// 	encoded.extend(transaction.identity.encode());
+			// write: update the DId attribute
+			Self::upsert_attribute_execute(&tx.did, &tx.name, &tx.value, tx.valid_till);
 
-		// 	// Execute the storage update if the signer is valid.
-		// 	Self::signed_attribute(who, &encoded, &transaction)?;
-		// 	Self::deposit_event(RawEvent::AttributeTransactionExecuted(transaction));
-		// 	Ok(())
-		// }
+			Self::deposit_event(RawEvent::AttributeUpdateTxExecuted(tx));
+			Ok(())
+		}
 	}
 }
 
@@ -372,6 +364,14 @@ impl<T: Trait> Module<T> {
 		if attr.value != value || attr.valid_till.map_or(false, |bn| bn > current) { return false }
 
 		true
+	}
+
+	pub fn encode_aut(tx: AttributeUpdateTx<T: Trait>) -> Vec<u8> {
+		let mut encoded = tx.did.encode();
+		encoded.extend(tx.name.encode());
+		encoded.extend(tx.value.encode());
+		encoded.extend(tx.valid_till.encode());
+		encoded
 	}
 
 	// Insert or update a delegete for a DId.
@@ -444,64 +444,4 @@ impl<T: Trait> Module<T> {
 	fn revoke_attribute_execute (did: &T::DId, name: &[u8]) {
 		<AttributeOf<T>>::remove(did, name);
 	}
-
-	// /// Checks if a signature is valid. Used to validate off-chain transactions.
-	// pub fn check_signature(
-	// 	signature: &T::Signature,
-	// 	msg: &[u8],
-	// 	signer: &T::AccountId,
-	// ) -> DispatchResult {
-	// 	if signature.verify(msg, signer) {
-	// 		Ok(())
-	// 	} else {
-	// 		Err(Error::<T>::BadSignature.into())
-	// 	}
-	// }
-
-	// /// Checks if a signature is valid. Used to validate off-chain transactions.
-	// pub fn valid_signer(
-	// 	identity: &T::AccountId,
-	// 	signature: &T::Signature,
-	// 	msg: &[u8],
-	// 	signer: &T::AccountId,
-	// ) -> DispatchResult {
-	// 	// Owner or a delegate signer.
-	// 	Self::valid_delegate(&identity, b"x25519VerificationKey2018", &signer)?;
-	// 	Self::check_signature(&signature, &msg, &signer)
-	// }
-
-	// /// Creates a new attribute from a off-chain transaction.
-	// fn signed_attribute(
-	// 	who: T::AccountId,
-	// 	encoded: &[u8],
-	// 	transaction: &AttributeTransaction<T::Signature, T::AccountId>,
-	// ) -> DispatchResult {
-	// 	// Verify that the Data was signed by the owner or a not expired signer delegate.
-	// 	Self::valid_signer(
-	// 		&transaction.identity,
-	// 		&transaction.signature,
-	// 		&encoded,
-	// 		&transaction.signer,
-	// 	)?;
-	// 	Self::is_owner(&transaction.identity, &transaction.signer)?;
-	// 	ensure!(transaction.name.len() <= 64, Error::<T>::BadTransaction);
-
-	// 	let now_block_number = <frame_system::Module<T>>::block_number();
-	// 	let validity = now_block_number + transaction.validity.into();
-
-	// 	// If validity was set to 0 in the transaction,
-	// 	// it will set the attribute latest valid block to the actual block.
-	// 	if validity > now_block_number {
-	// 		Self::create_attribute(
-	// 			who,
-	// 			&transaction.identity,
-	// 			&transaction.name,
-	// 			&transaction.value,
-	// 			Some(transaction.validity.into()),
-	// 		)?;
-	// 	} else {
-	// 		Self::reset_attribute(who, &transaction.identity, &transaction.name)?;
-	// 	}
-	// 	Ok(())
-	// }
 }

@@ -1,18 +1,16 @@
 {
+  "DId": "AccountId",
 	"Attribute": {
 		"name": "Vec<u8>",
 		"value": "Vec<u8>",
-		"created_at": "BlockNumber",
-		"valid_for": "BlockNumber",
+		"valid_till": "Option<BlockNumber>",
 		"nonce": "u64"
 	},
-  "AttributeTransaction": {
-    "signature": "Signature",
+  "AttributeUpdateTx": {
+    "did": "DId",
     "name": "Vec<u8>",
     "value": "Vec<u8>",
-    "validity": "u32",
-    "signer": "AccountId",
-    "identity": "AccountId"
-  },
-  "DId": "AccountId"
+    "valid_till": "Option<BlockNumber>",
+    "signature": "Signature"
+  }
 }
