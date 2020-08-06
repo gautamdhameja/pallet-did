@@ -61,12 +61,13 @@ impl timestamp::Trait for Test {
 }
 
 impl Trait for Test {
+	type DId = sr25519::Public;
 	type Event = ();
 	type Public = sr25519::Public;
 	type Signature = sr25519::Signature;
 }
 
-pub type DID = Module<Test>;
+pub type DId = Module<Test>;
 pub type System = system::Module<Test>;
 
 // This function basically just builds a genesis storage key/value store according to

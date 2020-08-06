@@ -85,13 +85,13 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify, MaybeDisplay,
 	Saturating};
-use sp_std::{prelude::*, vec::Vec, fmt, fmt::Debug};
+use sp_std::{prelude::*, fmt, fmt::Debug};
 
-// #[cfg(test)]
-// mod mock;
+#[cfg(test)]
+mod mock;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 const DELEGATE_TYPE_MAX_LEN: usize = 64;
 const ATTR_NAME_MAX_LEN: usize = 64;
@@ -115,7 +115,7 @@ pub struct AttributeUpdateTx<T: Trait> {
 	pub signature: T::Signature,
 }
 
-impl<T: Trait> Debug for AttributeUpdateTx<T> {
+impl<T: Trait> fmt::Debug for AttributeUpdateTx<T> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.write_str("AttributeUpdateTx<T>")
 	}
@@ -316,7 +316,7 @@ decl_module! {
 			Ok(())
 		}
 
-		/// Executes off-chain signed transaction.
+		/// Upsert DId attribute value via off-chain signature.
 		// The main difference of this function and `upsert_attribute` is that this function allows the DId
 		//   owner or its delegate (with delegation_type OFFCHAIN_TX_DELEGATE_TYPE) to update the DId attribute.
 		#[weight = 10000]
@@ -329,7 +329,10 @@ decl_module! {
 			// check: if the attribute name length is within the limit
 			ensure!(tx.name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 			// check: verify the signature is signed by `who`
-			ensure!(tx.signature.verify(&Self::encode_aut(&tx) as &[u8], &who), Error::<T>::InvalidSignature);
+			ensure!(
+				tx.signature.verify(&Self::encode_dnvv(&tx.did, &tx.name, &tx.value, tx.valid_till) as &[u8], &who),
+				Error::<T>::InvalidSignature
+			);
 
 			// write: update the DId attribute
 			Self::upsert_attribute_execute(&tx.did, &tx.name, &tx.value, tx.valid_till);
@@ -371,11 +374,11 @@ impl<T: Trait> Module<T> {
 		true
 	}
 
-	pub fn encode_aut(tx: &AttributeUpdateTx<T>) -> Vec<u8> {
-		let mut encoded = tx.did.encode();
-		encoded.extend(tx.name.encode());
-		encoded.extend(tx.value.encode());
-		encoded.extend(tx.valid_till.encode());
+	pub fn encode_dnvv(did: &T::DId, name: &[u8], value: &[u8], valid_till: Option<T::BlockNumber>) -> Vec<u8> {
+		let mut encoded = did.encode();
+		encoded.extend(name.encode());
+		encoded.extend(value.encode());
+		encoded.extend(valid_till.encode());
 		encoded
 	}
 
