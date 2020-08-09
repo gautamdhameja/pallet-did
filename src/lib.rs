@@ -83,8 +83,7 @@ use frame_support::{
 	StorageMap, Parameter
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify,
-	MaybeDisplay, Saturating};
+use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify, Saturating};
 use sp_std::{prelude::*, fmt, fmt::Debug};
 
 #[cfg(test)]
@@ -122,22 +121,11 @@ impl<T: Trait> fmt::Debug for AttributeUpdateTx<T> {
 }
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
-	type DId: Parameter + Member + MaybeSerializeDeserialize + Debug + MaybeDisplay + Ord + Default;
+	type DId: Into<Self::AccountId> + Parameter + MaybeSerializeDeserialize + Debug + Default;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Public: IdentifyAccount<AccountId = Self::AccountId>;
 	type Signature: Verify<Signer = Self::Public> + Member + Encode + Decode;
 }
-
-// self note: Not sure if implementing a From trait is the right approach,
-//   or is there a way to tell the compiler the asso type `T::DId` is going to be the same as
-//   T::AccountId ?
-// The following `impl` From yield another error if uncommented.
-
-// impl<T> From<<T as Trait>::DId> for <T as frame_system::Trait>::AccountId {
-// 	fn from(did: <T as Trait>::DId) -> Self {
-// 		()
-// 	}
-// }
 
 decl_event!(
 	pub enum Event<T> where
@@ -208,16 +196,8 @@ decl_module! {
 			// check: `did` doesn't exist in the store yet
 			ensure!(!Self::did_store(&did), Error::<T>::DIdAlreadyExist);
 
-// error[E0277]: the trait bound `<T as frame_system::Trait>::AccountId: std::convert::From<<T as Trait>::DId>` is not satisfied
-//    --> src/lib.rs:206:53
-//     |
-// 206 |             ensure!(signature.verify(&message as &[u8], &did.into()), Error::<T>::InvalidSignature);
-//     |                                                              ^^^^ the trait `std::convert::From<<T as Trait>::DId>` is not implemented for `<T as frame_system::Trait>::AccountId`
-//     |
-//     = note: required because of the requirements on the impl of `std::convert::Into<<T as frame_system::Trait>::AccountId>` for `<T as Trait>::DId`
-
 			// Verify the signature is signed by did
-			ensure!(signature.verify(&message as &[u8], &did.into()), Error::<T>::InvalidSignature);
+			ensure!(signature.verify(&message as &[u8], &did.clone().into()), Error::<T>::InvalidSignature);
 
 			// writes
 			<DIdStore<T>>::insert(&did, true);

@@ -6,26 +6,36 @@ use sp_core::Pair;
 fn allows_owner_attr_update_tx() {
 	new_test_ext().execute_with(|| {
 		// Create a DId account
-		let (_, did_public) = account("My Organization");
+		let (did_pair, did_public) = account("My Organization");
 
 		// Create a new account pair and public key
 		let (satoshi_pair, satoshi_public) = account("Satoshi");
 
+		let reg_msg = b"did registration";
+
 		// Test: Should be able to register a new DId
-		assert_ok!(DId::register_did(Origin::signed(satoshi_public.clone()), did_public));
+		assert_ok!(DId::register_did(
+			Origin::signed(satoshi_public.clone()),
+			did_public,
+			reg_msg.to_vec(),
+			did_pair.sign(reg_msg)
+		));
 
 		// Test: Should accept DId's owner signature
 		let name = b"attribute name";
 		let value = b"attribute value";
-		let msg = DId::encode_dnvv(&did_public, name, value, None);
+		let dnvv_msg = DId::encode_dnvv(&did_public, name, value, None);
 		let tx_satoshi = AttributeUpdateTx {
 			did: did_public,
 			name: name.to_vec(),
 			value: value.to_vec(),
 			valid_till: None,
-			signature: satoshi_pair.sign(&msg)
+			signature: satoshi_pair.sign(&dnvv_msg)
 		};
-		assert_ok!(DId::execute(Origin::signed(satoshi_public.clone()), tx_satoshi));
+		assert_ok!(DId::upsert_attribute_from_offchain_signature(
+			Origin::signed(satoshi_public.clone()),
+			tx_satoshi
+		));
 
 		// Test: Should not accept other ppl to update
 		let (bob_pair, bob_public) = account("Bob");
@@ -34,10 +44,12 @@ fn allows_owner_attr_update_tx() {
 			name: name.to_vec(),
 			value: value.to_vec(),
 			valid_till: None,
-			signature: bob_pair.sign(&msg)
+			signature: bob_pair.sign(&dnvv_msg)
 		};
-		assert_noop!(DId::execute(Origin::signed(bob_public.clone()), tx_bob),
-			Error::<Test>::InvalidDelegate);
+		assert_noop!(DId::upsert_attribute_from_offchain_signature(
+			Origin::signed(bob_public.clone()),
+			tx_bob
+		), Error::<Test>::InvalidDelegate);
 	});
 }
 
@@ -47,13 +59,19 @@ fn allows_delegate_attr_update_tx() {
 		System::set_block_number(1);
 
 		// Create a DId account
-		let (_, did_public) = account("My Organization");
+		let (did_pair, did_public) = account("My Organization");
 
 		// Create a new account pair and public key
 		let (_, satoshi_public) = account("Satoshi");
 		let (bob_pair, bob_public) = account("Bob");
+		let reg_msg = b"did registration";
 
-		assert_ok!(DId::register_did(Origin::signed(satoshi_public.clone()), did_public));
+		assert_ok!(DId::register_did(
+			Origin::signed(satoshi_public.clone()),
+			did_public,
+			reg_msg.to_vec(),
+			did_pair.sign(reg_msg)
+		));
 
 		let valid_block_offset = 5;
 
@@ -79,12 +97,17 @@ fn allows_delegate_attr_update_tx() {
 			valid_till: None,
 			signature: bob_pair.sign(&msg)
 		};
-		assert_ok!(DId::execute(Origin::signed(bob_public.clone()), tx_bob.clone()));
+		assert_ok!(DId::upsert_attribute_from_offchain_signature(
+			Origin::signed(bob_public.clone()),
+			tx_bob.clone()
+		));
 
 		// Now, Bob valid period has passed
 		System::set_block_number(2 + valid_block_offset);
 		// Test: This tx should fail
-		assert_noop!(DId::execute(Origin::signed(bob_public.clone()), tx_bob),
-			Error::<Test>::InvalidDelegate);
+		assert_noop!(DId::upsert_attribute_from_offchain_signature(
+			Origin::signed(bob_public.clone()),
+			tx_bob
+		), Error::<Test>::InvalidDelegate);
 	});
 }
