@@ -15,64 +15,59 @@
 //!
 //! ## Overview
 //!
-//! The DID pallet provides functionality for DIDs management.
+//! The DId (Decentralized ID) pallet provides functionality for DIds management.
 //!
-//! * Change Identity Owner
+//! * Register a DId
+//! * Change the DId Owner
 //! * Add Delegate
 //! * Revoke Delegate
 //! * Add Attribute
 //! * Revoke Attribute
-//! * Delete Attribute
-//! * Off-Chain Attribute Management
+//! * DId attribute update from off-chain transaction signature
 //!
 //! ### Terminology
 //!
-//! * **DID:** A Decentralized Identifiers/Identity compliant with the DID standard.
-//!     The DID is an AccountId with associated attributes/properties.
-//! * **Identity Ownership** By default an identity is owned by itself, meaning whoever controls the account with that key.
-//!     The owner can be updated to a new key pair.
-//! * **Delegate:** A Delegate recives delegated permissions from a DID for a specific purpose.
-//! * **Attribute:** It is a feature that gives extra information of an identity.
-//! * **Valid Delegate:** The action of obtaining the validity period of the delegate.
-//! * **Valid Attribute:** The action of obtaining the validity period of an attribute.
-//! * **Change Identity Owner:** The process of transferring ownership.
-//! * **Add Delegate:** The process of adding delegate privileges to an identity.
-//!     An identity can assign multiple delegates for specific purposes on its behalf.
-//! * **Revoke Delegate:** The process of revoking delegate privileges from an identity.
-//! * **Add Attribute:** The process of assigning a specific identity attribute or feature.
-//! * **Revoke Attribute:** The process of revoking a specific identity attribute or feature.
-//! * **Delete Attribute:** The process of deleting a specific identity attribute or feature.
+//! * **DId:** A Decentralized Identifiers/Identity compliant with the DID standard.
+//!     The DId is an AccountId with associated attributes/properties.
+//! * **Identity Ownership** The owner of the DId. It is the signer who called `register_did` dispatchable
+//!     method. The owner has to own the private key of the DId and send a message and its corresponding
+//!     signature by DId when registering.
+//! * **Delegate:** A Delegate receives delegated permissions from a DId for a specific purpose, represented
+//!    as `delegate_type`, in the code. The delegation can be valid indefinitely or valid for a certain
+//!    time period, represented by `BlockNumber`.
+//! * **Attribute:** It is a feature that gives extra information of a DId. Each attribute is a key, value
+//!     pair. The attribute can be valid indefinitely or valid for a certain time period, represented by
+//!    `BlockNumber`.
 //!
 //! ### Goals
 //!
 //! The DID system in Substrate is designed to make the following possible:
 //!
-//! * A decentralized identity or self-sovereign identity is a new approach where no one but you owns or controls the state of your digital identity.
+//! * A decentralized identity or self-sovereign identity is a new approach where no one but you owns
+//    or controls the state of your claimed digital identity.
 //! * It enables the possibility to create a portable, persistent,  privacy-protecting, and personal identity.
 //!
 //! ### Dispatchable Functions
 //!
-//! * `change_owner` - Transfers an `identity` represented as an `AccountId` from the owner account (`origin`) to a `target` account.
-//! * `add_delegate` - Creates a new delegate with an expiration period and for a specific purpose.
-//! * `revoke_delegate` - Revokes an identity's delegate by setting its expiration to the current block number.
-//! * `add_attribute` - Creates a new attribute/property as part of an identity. Sets its expiration period.
-//! * `revoke_attribute` - Revokes an attribute/property from an identity. Sets its expiration period to the actual block number.
-//! * `delete_attribute` - Removes an attribute/property from an identity. This attribute/property becomes unavailable.
-//! * `execute` - Executes off-chain signed transactions.
+//! * `register_did` - Register a DId. The DId should not have been claimed before, and the caller should
+//!    have the private key of the DId to make a signature.
+//! * `change_owner` - Transfers the DId ownership to someone else.
+//! * `upsert_delegate` - Create/update a new delegate with an expiration period for a specific purpose
+//!   (`delegate_type`).
+//! * `revoke_delegate` - Revokes a DId delegate for a specific purpose (`delegate_type`).
+//! * `upsert_attribute` - Create/update a new attribute/property as part of an identity and its its expiration period.
+//! * `revoke_attribute` - Revokes an attribute/property from an identity.
+//! * `upsert_attribute_from_offchain_signature` - Executes off-chain signed transactions to upsert the attribute
+//!   by the DId owner or delegate.
 //!
 //! ### Public Functions
 //!
-//! * `is_owner` - Returns a boolean value. `True` if the `account` owns the `identity`.
-//! * `identity_owner` - Get the account owner of an `identity`.
-//! * `valid_delegate` - Validates if a delegate belongs to an identity and it has not expired.
-//!    The identity owner has all provileges and is considered as delegate with all permissions.
-//! * `valid_listed_delegate` - Returns a boolean value. `True` if the `delegate` belongs the `identity` delegates list.
-//! * `valid_attribute` - Validates if an attribute belongs to an identity and it has not expired.
-//! * `attribute_and_id` - Get the `attribute` and its `hash` identifier.
-//! * `check_signature` - Validates the signer from a signature.
-//! * `valid_signer` - Validates a signature from a valid signer delegate or the owner of an identity.
-//!
-//! *
+//! * `valid_delegate` - Validates if a user is a valid delegate for a `delegate_type`. The owner is
+//!    always a valid delegate of its owned DId. Return `true` or `false`.
+//! * `valid_attribute` - Validates if an attribute/property is valid for the DId. The function return
+//!    `true` only when both the key and value match, and the property is before its expiration period.
+//! * `encode_dnvv` - This method encodes DId, attribute name, attribute value, and expiration period
+//!    into a message to be signed. This method is used when in `upsert_attribute_from_offchain_signature`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
