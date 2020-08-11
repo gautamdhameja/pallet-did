@@ -78,7 +78,7 @@ use frame_support::{
 	StorageMap, Parameter
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{MaybeSerializeDeserialize, IdentifyAccount, Member, Verify, Saturating};
+use sp_runtime::traits::{IdentifyAccount, Verify, Saturating};
 use sp_std::{prelude::*, fmt, fmt::Debug};
 
 #[cfg(test)]
@@ -116,10 +116,10 @@ impl<T: Trait> fmt::Debug for AttributeUpdateTx<T> {
 }
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
-	type DId: Into<Self::AccountId> + Parameter + MaybeSerializeDeserialize + Debug + Default;
+	type DId: Into<Self::AccountId> + Parameter;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Public: IdentifyAccount<AccountId = Self::AccountId>;
-	type Signature: Verify<Signer = Self::Public> + Member + Encode + Decode;
+	type Signature: Verify<Signer = Self::Public> + Parameter;
 }
 
 decl_event!(
