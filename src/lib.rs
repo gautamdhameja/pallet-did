@@ -77,7 +77,7 @@ use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 	StorageMap, Parameter
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{ensure_signed};
 use sp_runtime::traits::{IdentifyAccount, Verify, Saturating};
 use sp_std::{prelude::*, fmt, fmt::Debug};
 
@@ -129,14 +129,11 @@ decl_event!(
 		<T as Trait>::DId,
 	{
 		// params order: DId, the owner
-		DIdRegistered(DId, AccountId),
-		// params order: DId, the owner
 		DIdOwnerChanged(DId, AccountId),
 		// params order: DId, delegate type, target account, valid offset
 		DelegateUpserted(DId, Vec<u8>, AccountId, Option<BlockNumber>),
 		// params order: DId, delegate type, target account
 		DelegateRevoked(DId, Vec<u8>, AccountId),
-
 		AttributeUpserted(DId, Vec<u8>, Vec<u8>, Option<BlockNumber>),
 		AttributeRevoked(DId, Vec<u8>),
 		AttributeUpdateTxExecuted(AccountId, DId, Vec<u8>, Vec<u8>, Option<BlockNumber>),
@@ -147,8 +144,6 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		AttrNameTooLong,
 		DelegateTypeTooLong,
-		DIdAlreadyExist,
-		DIdNotExist,
 		InvalidDelegate,
 		InvalidSignature,
 		NotOwner,
@@ -185,35 +180,14 @@ decl_module! {
 
 		/// This function registers a new DId. The DId must not existed before
 		#[weight = 10000]
-		pub fn register_did(origin, did: T::DId, message: Vec<u8>, signature: T::Signature) -> DispatchResult {
-			// check: this is a signed tx
-			let who = ensure_signed(origin)?;
-			// check: `did` doesn't exist in the store yet
-			ensure!(!Self::did_store(&did), Error::<T>::DIdAlreadyExist);
-
-			// Verify the signature is signed by did
-			ensure!(signature.verify(&message as &[u8], &did.clone().into()), Error::<T>::InvalidSignature);
-
-			// writes
-			<DIdStore<T>>::insert(&did, true);
-			<OwnerOf<T>>::insert(&did, &who);
-
-			// Emit event to notify DId is updated
-			Self::deposit_event(RawEvent::DIdRegistered(did, who));
-			Ok(())
-		}
-
-		/// This function registers a new DId. The DId must not existed before
-		#[weight = 10000]
 		pub fn change_owner(origin, did: T::DId, new_owner: T::AccountId) -> DispatchResult {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			// check: `did` exists in the store
-			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
 			// check: `who` is the owner of the DId
-			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
+			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 
 			// writes
+			<DIdStore<T>>::insert(&did, true);
 			<OwnerOf<T>>::insert(&did, &new_owner);
 
 			// Emit event to notify DId is updated
@@ -228,10 +202,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			// check: `did` exists in the store
-			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
-			// check: the call is made by the DId owner
-			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
+			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_MAX_LEN, Error::<T>::DelegateTypeTooLong);
 
@@ -250,10 +221,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			// check: `did` exists in the store
-			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
-			// check: `who` is the owner of the DId
-			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
+			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_MAX_LEN, Error::<T>::DelegateTypeTooLong);
 
@@ -278,10 +246,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			// check: `did` exists in the store
-			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
-			// check: the call is made by the DId owner
-			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
+			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
@@ -298,10 +263,7 @@ decl_module! {
 		pub fn revoke_attribute(origin, did: T::DId, name: Vec<u8>) -> DispatchResult {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			// check: `did` exists in the store
-			ensure!(Self::did_store(&did), Error::<T>::DIdNotExist);
-			// check: the call is made by the DId owner
-			ensure!(Self::owner_of(&did) == who, Error::<T>::NotOwner);
+			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
@@ -341,6 +303,11 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+	fn owned(did: &T::DId, check: &T::AccountId) -> bool {
+		(Self::did_store(did) && Self::owner_of(did) == *check) ||
+			(!Self::did_store(did) && did.clone().into() == *check)
+	}
+
 	/// Check if a delegate is valid for a (DId, delegate_type)
 	// The DId owner is always a valid delegate for all delegate_type at all time
 	pub fn valid_delegate(did: &T::DId, delegate_type: &[u8], delegate: &T::AccountId) -> bool {
