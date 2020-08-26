@@ -17,7 +17,6 @@
 //!
 //! The DId (Decentralized ID) pallet provides functionality for DIds management.
 //!
-//! * Register a DId
 //! * Change the DId Owner
 //! * Add Delegate
 //! * Revoke Delegate
@@ -25,16 +24,18 @@
 //! * Revoke Attribute
 //! * DId attribute update from off-chain transaction signature
 //!
+//! By default, each DId belongs to itself, until a `change_owner` dispatchable function is called
+//!   to pass the ownership to someone else.
+//!
 //! ### Terminology
 //!
 //! * **DId:** A Decentralized Identifiers/Identity compliant with the DID standard.
 //!     The DId is an AccountId with associated attributes/properties.
-//! * **Identity Ownership** The owner of the DId. It is the signer who called `register_did` dispatchable
-//!     method. The owner has to own the private key of the DId and send a message and its corresponding
-//!     signature by DId when registering.
+//! * **DId Ownership** The owner of the DId. By default it belongs to itself until ownership is passed
+//!     to others.
 //! * **Delegate:** A Delegate receives delegated permissions from a DId for a specific purpose, represented
-//!    as `delegate_type`, in the code. The delegation can be valid indefinitely or valid for a certain
-//!    time period, represented by `BlockNumber`.
+//!    as `delegate_type`. The delegation can be valid indefinitely or valid for a certain time period,
+//!     represented by `BlockNumber`.
 //! * **Attribute:** It is a feature that gives extra information of a DId. Each attribute is a key, value
 //!     pair. The attribute can be valid indefinitely or valid for a certain time period, represented by
 //!    `BlockNumber`.
@@ -49,9 +50,7 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `register_did` - Register a DId. The DId should not have been claimed before, and the caller should
-//!    have the private key of the DId to make a signature.
-//! * `change_owner` - Transfers the DId ownership to someone else.
+//! * `change_owner` - Transfers the DId ownership to another account.
 //! * `upsert_delegate` - Create/update a new delegate with an expiration period for a specific purpose
 //!   (`delegate_type`).
 //! * `revoke_delegate` - Revokes a DId delegate for a specific purpose (`delegate_type`).
@@ -311,12 +310,10 @@ impl<T: Trait> Module<T> {
 	/// Check if a delegate is valid for a (DId, delegate_type)
 	// The DId owner is always a valid delegate for all delegate_type at all time
 	pub fn valid_delegate(did: &T::DId, delegate_type: &[u8], delegate: &T::AccountId) -> bool {
-		// DId does not exist
-		if !Self::did_store(did) { return false }
+		// Check if it is DId owner
+		if Self::owned(did, delegate) { return true }
 
-		// `delegate` is the DId owner
-		if Self::owner_of(did) == *delegate  { return true }
-
+		// Verified `delegate` is not DId owner here
 		let delegate_vec = Self::delegate_of(did, delegate_type);
 		match delegate_vec.iter().find(|(acct, _)| acct == delegate) {
 			Some((_, exp_opt)) => exp_opt.map_or(true,
