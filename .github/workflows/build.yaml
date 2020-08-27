@@ -35,6 +35,9 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Unleash clippy
+        run: cargo clippy -- -D warnings -A deprecated
+
       - name: Build Native
         run: cargo build
 

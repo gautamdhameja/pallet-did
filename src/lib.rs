@@ -181,7 +181,7 @@ decl_module! {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: `who` is the owner of the DId
-			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { return Err(Error::<T>::NotOwner.into()) }
 
 			// DB writes
 			<OwnerOf<T>>::insert(&did, &new_owner);
@@ -198,7 +198,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { return Err(Error::<T>::NotOwner.into()) }
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_MAX_LEN, Error::<T>::DelegateTypeTooLong);
 
@@ -217,7 +217,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { return Err(Error::<T>::NotOwner.into()) }
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_MAX_LEN, Error::<T>::DelegateTypeTooLong);
 
@@ -242,7 +242,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { return Err(Error::<T>::NotOwner.into()) }
 			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
@@ -259,7 +259,7 @@ decl_module! {
 		pub fn revoke_attribute(origin, did: T::DId, name: Vec<u8>) -> DispatchResult {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { return Err(Error::<T>::NotOwner.into()) }
 			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
@@ -305,7 +305,7 @@ impl<T: Trait> Module<T> {
 
 	pub fn did_owner(did: &T::DId) -> T::AccountId {
 		match Self::owner_of(did) {
-			Some(owner) => owner.clone(),
+			Some(owner) => owner,
 			None => did.clone().into(),
 		}
 	}
@@ -349,26 +349,25 @@ impl<T: Trait> Module<T> {
 	// Insert or update a delegete for a DId.
 	fn upsert_delegate_execute(
 		did: &T::DId,
-		delegate_type: &Vec<u8>,
+		delegate_type: &[u8],
 		delegate: &T::AccountId,
 		valid_for_offset: Option<T::BlockNumber>,
 	) {
-		let new_exp_opt = valid_for_offset.map_or(None,
-			|offset| Some(<frame_system::Module<T>>::block_number().saturating_add(offset))
+		let new_exp_opt = valid_for_offset.map(|offset|
+			<frame_system::Module<T>>::block_number().saturating_add(offset)
 		);
 
 		let mut acct_exist = false;
 
 		<DelegateOf<T>>::mutate(did, delegate_type, |vec| {
 			// Check if there is existing acct, update that record
-			*vec = vec.into_iter()
-				.filter_map( |(acct, orig_exp_opt)| if acct == delegate {
+			*vec = vec.iter_mut().map(|(acct, orig_exp_opt)|
+				if acct == delegate {
 					acct_exist = true;
-					Some((acct.clone(), new_exp_opt))
+					(acct.clone(), new_exp_opt)
 				} else {
-					Some((acct.clone(), *orig_exp_opt))
-				})
-				.collect::<Vec<_>>();
+					(acct.clone(), *orig_exp_opt)
+				}).collect::<Vec<_>>();
 
 			// No existing acct found, so insert a record
 			if !acct_exist {
@@ -377,15 +376,12 @@ impl<T: Trait> Module<T> {
 		});
 	}
 
-	fn revoke_delegate_execute(did: &T::DId, delegate_type: &Vec<u8>, delegate: &T::AccountId) {
+	fn revoke_delegate_execute(did: &T::DId, delegate_type: &[u8], delegate: &T::AccountId) {
 		<DelegateOf<T>>::mutate(did, delegate_type, |vec| {
-			*vec = vec.into_iter()
-				.filter_map( |(acct, exp_opt)| if acct == delegate {
-					None
-				} else {
-					Some((acct.clone(), *exp_opt))
-				})
-				.collect::<Vec<_>>();
+			*vec = vec.iter_mut().filter_map(|(acct, exp_opt)|
+				if acct == delegate { None }
+				else { Some((acct.clone(), *exp_opt)) }
+			).collect::<Vec<_>>();
 		});
 	}
 
@@ -393,8 +389,8 @@ impl<T: Trait> Module<T> {
 	fn upsert_attribute_execute (
 		did: &T::DId, name: &[u8], value: &[u8], valid_for_offset: Option<T::BlockNumber>
 	) {
-		let valid_till = valid_for_offset.map_or(None,
-			|offset| Some(<frame_system::Module<T>>::block_number().saturating_add(offset))
+		let valid_till = valid_for_offset.map(|offset|
+			<frame_system::Module<T>>::block_number().saturating_add(offset)
 		);
 
 		let nonce = Self::nonce_of(did, name);
@@ -407,7 +403,7 @@ impl<T: Trait> Module<T> {
 		};
 
 		//2 writes: 1) to AttributeOf, 2) to AttributeNonceOf
-		<AttributeOf<T>>::insert(did.clone(), name.clone(), attr);
+		<AttributeOf<T>>::insert(did.clone(), name.to_vec(), attr);
 		<AttributeNonceOf<T>>::mutate(did, name, |n| *n += 1);
 	}
 
