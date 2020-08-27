@@ -115,10 +115,9 @@ impl<T: Trait> fmt::Debug for AttributeUpdateTx<T> {
 }
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
-	type DId: Into<Self::AccountId> + Parameter;
+	type DId: IdentifyAccount<AccountId = Self::AccountId> + Into<Self::AccountId> + Parameter;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-	type Public: IdentifyAccount<AccountId = Self::AccountId>;
-	type Signature: Verify<Signer = Self::Public> + Parameter;
+	type Signature: Verify<Signer = Self::DId> + Parameter;
 }
 
 decl_event!(
@@ -151,11 +150,8 @@ decl_error! {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as DId {
-		// Storing all the current registered DId
-		pub DIdStore get(fn did_store): map hasher(blake2_128_concat) T::DId => bool;
-
 		/// DId owner
-		pub OwnerOf get(fn owner_of): map hasher(blake2_128_concat) T::DId => T::AccountId;
+		pub OwnerOf get(fn owner_of): map hasher(blake2_128_concat) T::DId => Option<T::AccountId>;
 
 		/// The delegates of an identity. Only valid for a specific period as defined by block number.
 		pub DelegateOf get(fn delegate_of): double_map hasher(blake2_128_concat) T::DId,
@@ -183,10 +179,9 @@ decl_module! {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
 			// check: `who` is the owner of the DId
-			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 
-			// writes
-			<DIdStore<T>>::insert(&did, true);
+			// DB writes
 			<OwnerOf<T>>::insert(&did, &new_owner);
 
 			// Emit event to notify DId is updated
@@ -201,7 +196,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_MAX_LEN, Error::<T>::DelegateTypeTooLong);
 
@@ -220,7 +215,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the `delegate_type` length is within the limit
 			ensure!(delegate_type.len() <= DELEGATE_TYPE_MAX_LEN, Error::<T>::DelegateTypeTooLong);
 
@@ -245,7 +240,7 @@ decl_module! {
 		{
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
@@ -262,7 +257,7 @@ decl_module! {
 		pub fn revoke_attribute(origin, did: T::DId, name: Vec<u8>) -> DispatchResult {
 			// check: this is a signed tx
 			let who = ensure_signed(origin)?;
-			if !Self::owned(&did, &who) { Err(Error::<T>::NotOwner)? }
+			if !Self::did_owned(&did, &who) { Err(Error::<T>::NotOwner)? }
 			// check: the attribute name length is within the limit
 			ensure!(name.len() <= ATTR_NAME_MAX_LEN, Error::<T>::AttrNameTooLong);
 
@@ -302,16 +297,22 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	fn owned(did: &T::DId, check: &T::AccountId) -> bool {
-		(Self::did_store(did) && Self::owner_of(did) == *check) ||
-			(!Self::did_store(did) && did.clone().into() == *check)
+	pub fn did_owned(did: &T::DId, check: &T::AccountId) -> bool {
+		Self::did_owner(did) == *check
+	}
+
+	pub fn did_owner(did: &T::DId) -> T::AccountId {
+		match Self::owner_of(did) {
+			Some(owner) => owner.clone(),
+			None => did.clone().into(),
+		}
 	}
 
 	/// Check if a delegate is valid for a (DId, delegate_type)
 	// The DId owner is always a valid delegate for all delegate_type at all time
 	pub fn valid_delegate(did: &T::DId, delegate_type: &[u8], delegate: &T::AccountId) -> bool {
 		// Check if it is DId owner
-		if Self::owned(did, delegate) { return true }
+		if Self::did_owned(did, delegate) { return true }
 
 		// Verified `delegate` is not DId owner here
 		let delegate_vec = Self::delegate_of(did, delegate_type);

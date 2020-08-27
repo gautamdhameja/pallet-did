@@ -65,7 +65,6 @@ impl timestamp::Trait for Test {
 impl Trait for Test {
 	type DId = sr25519::Public;
 	type Event = ();
-	type Public = sr25519::Public;
 	type Signature = sr25519::Signature;
 }
 
