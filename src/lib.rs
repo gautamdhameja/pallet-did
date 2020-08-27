@@ -50,20 +50,22 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `change_owner` - Transfers the DId ownership to another account.
+//! * `change_owner` - Transfer the DId ownership to another account.
 //! * `upsert_delegate` - Create/update a new delegate with an expiration period for a specific purpose
 //!   (`delegate_type`).
-//! * `revoke_delegate` - Revokes a DId delegate for a specific purpose (`delegate_type`).
+//! * `revoke_delegate` - Revoke a DId delegate for a specific purpose (`delegate_type`).
 //! * `upsert_attribute` - Create/update a new attribute/property as part of an identity and its its expiration period.
-//! * `revoke_attribute` - Revokes an attribute/property from an identity.
-//! * `upsert_attribute_from_offchain_signature` - Executes off-chain signed transactions to upsert the attribute
+//! * `revoke_attribute` - Revoke an attribute/property from an identity.
+//! * `upsert_attribute_from_offchain_signature` - Execute off-chain signed transactions to upsert the attribute
 //!   by the DId owner or delegate.
 //!
 //! ### Public Functions
 //!
-//! * `valid_delegate` - Validates if a user is a valid delegate for a `delegate_type`. The owner is
+//! * `did_owned` - Check whether a DId is owned by the user. Return a `bool` value.
+//! * `did_owner` - Retrieve the DId owner. Return a `T::AccounId` value.
+//! * `valid_delegate` - Check if a user is a valid delegate for a `delegate_type`. The owner is
 //!    always a valid delegate of its owned DId. Return `true` or `false`.
-//! * `valid_attribute` - Validates if an attribute/property is valid for the DId. The function return
+//! * `valid_attribute` - Check if an attribute/property is valid for the DId. The function return
 //!    `true` only when both the key and value match, and the property is before its expiration period.
 //! * `encode_dnvv` - This method encodes DId, attribute name, attribute value, and expiration period
 //!    into a message to be signed. This method is used when in `upsert_attribute_from_offchain_signature`.
