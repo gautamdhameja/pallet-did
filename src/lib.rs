@@ -445,7 +445,7 @@ impl<T: Trait> Module<T> {
 
     /// Adds a new attribute to an identity and colects the storage fee.
     pub fn create_attribute(
-        who: T::AccountId,
+        who: &T::AccountId,
         identity: &T::AccountId,
         name: &[u8],
         value: &[u8],
