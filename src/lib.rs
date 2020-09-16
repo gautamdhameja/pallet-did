@@ -396,7 +396,7 @@ impl<T: Trait> Module<T> {
         who: &T::AccountId,
         identity: &T::AccountId,
         delegate: &T::AccountId,
-        delegate_type: &Vec<u8>,
+        delegate_type: &[u8],
         valid_for: Option<T::BlockNumber>,
     ) -> DispatchResult {
         Self::is_owner(&identity, who)?;
