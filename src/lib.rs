@@ -242,7 +242,7 @@ decl_module! {
             let who = ensure_signed(origin)?;
             ensure!(name.len() <= 64, Error::<T>::AttributeCreationFailed);
 
-            Self::create_attribute(who, &identity, &name, &value, valid_for)?;
+            Self::create_attribute(&who, &identity, &name, &value, valid_for)?;
             Self::deposit_event(RawEvent::AttributeAdded(identity, name, valid_for));
             Ok(())
         }
@@ -412,9 +412,7 @@ impl<T: Trait> Module<T> {
             None => u32::max_value().into(),
         };
 
-        <DelegateOf<T>>::insert(
-            (&identity, delegate_type, delegate), &validity,
-        );
+        <DelegateOf<T>>::insert((&identity, delegate_type, delegate), &validity);
         Ok(())
     }
 
@@ -497,7 +495,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// Updates the attribute validity to make it expire and invalid.
-    pub fn reset_attribute(who: T::AccountId, identity: &T::AccountId, name: &[u8]) -> DispatchResult {
+    pub fn reset_attribute(
+        who: T::AccountId,
+        identity: &T::AccountId,
+        name: &[u8],
+    ) -> DispatchResult {
         Self::is_owner(&identity, &who)?;
         // If the attribute contains_key, the latest valid block is set to the current block.
         let result = Self::attribute_and_id(identity, name);
@@ -588,7 +590,7 @@ impl<T: Trait> Module<T> {
         // it will set the attribute latest valid block to the actual block.
         if validity > now_block_number {
             Self::create_attribute(
-                who,
+                &who,
                 &transaction.identity,
                 &transaction.name,
                 &transaction.value,
