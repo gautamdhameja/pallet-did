@@ -1,7 +1,5 @@
 use crate::{Module, Trait};
-use frame_support::{
-  impl_outer_origin, parameter_types, weights::Weight,
-};
+use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use frame_system as system;
 use pallet_timestamp as timestamp;
 use sp_core::{sr25519, Pair, H256};
@@ -28,36 +26,38 @@ parameter_types! {
 }
 
 impl system::Trait for Test {
-  type BaseCallFilter = ();
-  type Origin = Origin;
-  type Call = ();
-  type Index = u64;
-  type BlockNumber = u64;
-  type Hash = H256;
-  type Hashing = BlakeTwo256;
-  type AccountId = sr25519::Public;
-  type Lookup = IdentityLookup<Self::AccountId>;
-  type Header = Header;
-  type Event = ();
-  type BlockHashCount = BlockHashCount;
-  type MaximumBlockWeight = MaximumBlockWeight;
-  type DbWeight = ();
-  type BlockExecutionWeight = ();
-  type ExtrinsicBaseWeight = ();
-  type MaximumExtrinsicWeight = MaximumBlockWeight;
-  type MaximumBlockLength = MaximumBlockLength;
-  type AvailableBlockRatio = AvailableBlockRatio;
-  type Version = ();
-  type ModuleToIndex = ();
-  type AccountData = ();
-  type OnNewAccount = ();
-  type OnKilledAccount = ();
+    type BaseCallFilter = ();
+    type Origin = Origin;
+    type Call = ();
+    type Index = u64;
+    type BlockNumber = u64;
+    type Hash = H256;
+    type Hashing = BlakeTwo256;
+    type AccountId = sr25519::Public;
+    type Lookup = IdentityLookup<Self::AccountId>;
+    type Header = Header;
+    type Event = ();
+    type BlockHashCount = BlockHashCount;
+    type MaximumBlockWeight = MaximumBlockWeight;
+    type DbWeight = ();
+    type BlockExecutionWeight = ();
+    type ExtrinsicBaseWeight = ();
+    type MaximumExtrinsicWeight = MaximumBlockWeight;
+    type MaximumBlockLength = MaximumBlockLength;
+    type AvailableBlockRatio = AvailableBlockRatio;
+    type Version = ();
+    type ModuleToIndex = ();
+    type AccountData = ();
+    type OnNewAccount = ();
+    type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = ();
+    type WeightInfo = ();
 }
 
 impl Trait for Test {
