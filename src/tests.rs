@@ -52,9 +52,9 @@ fn validate_delegated_claim() {
         assert_ok!(
             DID::add_delegate(
                 Origin::signed(satoshi_public.clone()),
-                satoshi_public.clone(),  // owner
-                nakamoto_public.clone(), // new signer delgate
-                delegate_type.clone(),   // "Sr25519VerificationKey2018"
+                satoshi_public,  // owner
+                nakamoto_public, // new signer delgate
+                delegate_type,   // "Sr25519VerificationKey2018"
                 Some(5)
             ) // valid for 5 blocks
         );
@@ -95,8 +95,8 @@ fn add_on_chain_and_revoke_off_chain_attribute() {
 
         // Add a new attribute to an identity. Valid until block 1 + 1000.
         assert_ok!(DID::add_attribute(
-            Origin::signed(alice_public.clone()),
-            alice_public.clone(),
+            Origin::signed(alice_public),
+            alice_public,
             name.clone(),
             value.clone(),
             Some(validity.clone().into())
@@ -119,15 +119,15 @@ fn add_on_chain_and_revoke_off_chain_attribute() {
         let revoke_transaction = AttributeTransaction {
             signature: revoke_sig,
             name: name.clone(),
-            value: value.clone(),
+            value,
             validity,
-            signer: alice_public.clone(),
-            identity: alice_public.clone(),
+            signer: alice_public,
+            identity: alice_public,
         };
 
         // Revoke with off-chain signed transaction.
         assert_ok!(DID::execute(
-            Origin::signed(alice_public.clone()),
+            Origin::signed(alice_public),
             revoke_transaction
         ));
 
@@ -177,11 +177,7 @@ fn attacker_add_new_delegate_should_fail() {
     new_test_ext().execute_with(|| {
         // BadBoy is an invalid delegate previous to attack.
         assert_noop!(
-            DID::valid_delegate(
-                &account_key("Alice"),
-                &vec![7, 7, 7],
-                &account_key("BadBoy")
-            ),
+            DID::valid_delegate(&account_key("Alice"), &[7, 7, 7], &account_key("BadBoy")),
             Error::<Test>::InvalidDelegate
         );
 
@@ -199,11 +195,7 @@ fn attacker_add_new_delegate_should_fail() {
 
         // BadBoy is an invalid delegate.
         assert_noop!(
-            DID::valid_delegate(
-                &account_key("Alice"),
-                &vec![7, 7, 7],
-                &account_key("BadBoy")
-            ),
+            DID::valid_delegate(&account_key("Alice"), &[7, 7, 7], &account_key("BadBoy")),
             Error::<Test>::InvalidDelegate
         );
     });
