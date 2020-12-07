@@ -1,4 +1,4 @@
-use crate::{mock::*, AttributeTransaction, Error};
+use crate::{did::Did, mock::*, AttributeTransaction, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::Pair;

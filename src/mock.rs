@@ -64,6 +64,7 @@ impl Trait for Test {
     type Event = ();
     type Public = sr25519::Public;
     type Signature = sr25519::Signature;
+    type Time = pallet_timestamp::Module<Test>;
 }
 
 pub type DID = Module<Test>;

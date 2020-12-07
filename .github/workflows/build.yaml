@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: hecrj/setup-rust-action@v1
         with:
-          rust-version: nightly
+          rust-version: nightly-2020-10-05
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
       
@@ -45,7 +45,7 @@ jobs:
         run: cargo build
 
       - name: Build Wasm
-        run: cargo +nightly build --target wasm32-unknown-unknown --no-default-features
+        run: cargo +nightly-2020-10-05 build --target wasm32-unknown-unknown --no-default-features
 
       - name: Run tests
         run: cargo test
