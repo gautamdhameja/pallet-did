@@ -82,8 +82,8 @@ use crate::types::*;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult,
-    ensure, StorageMap, traits::Time,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    traits::Time, StorageMap,
 };
 use frame_system::ensure_signed;
 use sp_io::hashing::blake2_256;
@@ -323,7 +323,9 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::Moment, T::Signature> for Module<T> {
+impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::Moment, T::Signature>
+    for Module<T>
+{
     /// Validates if the AccountId 'actual_owner' owns the identity.
     fn is_owner(identity: &T::AccountId, actual_owner: &T::AccountId) -> DispatchResult {
         let owner = Self::identity_owner(identity);
@@ -479,11 +481,7 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
     }
 
     /// Updates the attribute validity to make it expire and invalid.
-    fn reset_attribute(
-        who: T::AccountId,
-        identity: &T::AccountId,
-        name: &[u8],
-    ) -> DispatchResult {
+    fn reset_attribute(who: T::AccountId, identity: &T::AccountId, name: &[u8]) -> DispatchResult {
         Self::is_owner(&identity, &who)?;
         // If the attribute contains_key, the latest valid block is set to the current block.
         let result = Self::attribute_and_id(identity, name);
