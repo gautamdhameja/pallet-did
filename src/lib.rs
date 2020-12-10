@@ -462,7 +462,7 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
             nonce = nonce.checked_add(1).ok_or(Error::<T>::Overflow)?;
             <AttributeOf<T>>::insert((&identity, &id), new_attribute);
             <AttributeNonce<T>>::mutate((&identity, name.to_vec()), |n| *n = nonce);
-            <UpdatedBy<T>>::insert( identity, (who, now_block_number, now_timestamp));
+            <UpdatedBy<T>>::insert(identity, (who, now_block_number, now_timestamp));
             Ok(())
         }
     }

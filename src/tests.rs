@@ -207,11 +207,31 @@ fn add_remove_add_remove_attr() {
         let acct = "Alice";
         let vec = vec![7, 7, 7];
         assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), 0);
-        assert_ok!(DID::add_attribute(Origin::signed(account_key(acct)), account_key(acct), vec.to_vec(), vec.to_vec(), None));
+        assert_ok!(DID::add_attribute(
+            Origin::signed(account_key(acct)),
+            account_key(acct),
+            vec.to_vec(),
+            vec.to_vec(),
+            None
+        ));
         assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), 1);
-        assert_ok!(DID::delete_attribute(Origin::signed(account_key(acct)), account_key(acct), vec.to_vec()));
-        assert_ok!(DID::add_attribute(Origin::signed(account_key(acct)), account_key(acct), vec.to_vec(), vec.to_vec(), None));
+        assert_ok!(DID::delete_attribute(
+            Origin::signed(account_key(acct)),
+            account_key(acct),
+            vec.to_vec()
+        ));
+        assert_ok!(DID::add_attribute(
+            Origin::signed(account_key(acct)),
+            account_key(acct),
+            vec.to_vec(),
+            vec.to_vec(),
+            None
+        ));
         assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), 2);
-        assert_ok!(DID::delete_attribute(Origin::signed(account_key(acct)), account_key(acct), vec.to_vec()));
+        assert_ok!(DID::delete_attribute(
+            Origin::signed(account_key(acct)),
+            account_key(acct),
+            vec.to_vec()
+        ));
     });
 }
