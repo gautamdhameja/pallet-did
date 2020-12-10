@@ -436,26 +436,20 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
         valid_for: Option<T::BlockNumber>,
     ) -> DispatchResult {
         Self::is_owner(&identity, &who)?;
-        let now_timestamp = T::Time::now();
-        let now_block_number = <frame_system::Module<T>>::block_number();
+
         let mut nonce = Self::nonce_of((&identity, name.to_vec()));
-
-        let validity: T::BlockNumber = match valid_for {
-            Some(blocks) => now_block_number + blocks,
-            None => u32::max_value().into(),
-        };
-
-        // Used for first time attribute creation
-        let lookup_nonce = match &nonce {
-            0 => 0, // prevents intialization panic
-            _ => &nonce - 1,
-        };
-
-        let id = (&identity, name, lookup_nonce).using_encoded(blake2_256);
+        let id = (&identity, name, nonce).using_encoded(blake2_256);
 
         if <AttributeOf<T>>::contains_key((&identity, &id)) {
             Err(Error::<T>::AttributeCreationFailed.into())
         } else {
+            let now_timestamp = T::Time::now();
+            let now_block_number = <frame_system::Module<T>>::block_number();
+            let validity: T::BlockNumber = match valid_for {
+                Some(blocks) => now_block_number + blocks,
+                None => u32::max_value().into(),
+            };
+
             let new_attribute = Attribute {
                 name: (&name).to_vec(),
                 value: (&value).to_vec(),
@@ -468,14 +462,7 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
             nonce = nonce.checked_add(1).ok_or(Error::<T>::Overflow)?;
             <AttributeOf<T>>::insert((&identity, &id), new_attribute);
             <AttributeNonce<T>>::mutate((&identity, name.to_vec()), |n| *n = nonce);
-            <UpdatedBy<T>>::insert(
-                identity,
-                (
-                    who,
-                    <frame_system::Module<T>>::block_number(),
-                    T::Time::now(),
-                ),
-            );
+            <UpdatedBy<T>>::insert( identity, (who, now_block_number, now_timestamp));
             Ok(())
         }
     }
@@ -534,7 +521,7 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
 
         // Used for first time attribute creation
         let lookup_nonce = match nonce {
-            0u64 => 0, // prevents intialization panic
+            0u64 => return None,
             _ => nonce - 1u64,
         };
 
