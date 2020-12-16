@@ -437,15 +437,7 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
     ) -> DispatchResult {
         Self::is_owner(&identity, &who)?;
 
-        let mut nonce = Self::nonce_of((&identity, name.to_vec()));
-        // Used for first time attribute creation
-        let lookup_nonce = match nonce {
-            0u64 => 0u64,
-            _ => nonce - 1u64,
-        };
-        let mut id = (&identity, name, lookup_nonce).using_encoded(blake2_256);
-
-        if <AttributeOf<T>>::contains_key((&identity, &id)) {
+        if Self::attribute_and_id(identity, name).is_some() {
             Err(Error::<T>::AttributeCreationFailed.into())
         } else {
             let now_timestamp = T::Time::now();
@@ -455,6 +447,8 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
                 None => u32::max_value().into(),
             };
 
+            let mut nonce = Self::nonce_of((&identity, name.to_vec()));
+            let id = (&identity, name, nonce).using_encoded(blake2_256);
             let new_attribute = Attribute {
                 name: (&name).to_vec(),
                 value: (&value).to_vec(),
@@ -463,7 +457,6 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
                 nonce,
             };
 
-            id = (&identity, name, nonce).using_encoded(blake2_256);
             // Prevent panic overflow
             nonce = nonce.checked_add(1).ok_or(Error::<T>::Overflow)?;
             <AttributeOf<T>>::insert((&identity, &id), new_attribute);
