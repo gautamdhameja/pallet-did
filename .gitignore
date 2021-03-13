@@ -2,3 +2,7 @@
 **/*.rs.bk
 
 Cargo.lock
+
+*.iml
+
+.idea
