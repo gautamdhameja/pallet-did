@@ -27,7 +27,7 @@ Next we will update `my-node/runtime/src/lib.rs` to actually use our new runtime
 
 ``` rust
 // add the following code block
-impl pallet_did::Trait for Runtime {
+impl pallet_did::Config for Runtime {
   type Event = Event;
   type Public = sp_runtime::MultiSigner;
   type Signature = Signature;
