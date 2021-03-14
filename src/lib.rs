@@ -323,7 +323,8 @@ decl_error! {
     }
 }
 
-impl<T: Config> Did<T::AccountId, T::BlockNumber, <<T as Config>::Time as Time>::Moment, T::Signature>
+impl<T: Config>
+    Did<T::AccountId, T::BlockNumber, <<T as Config>::Time as Time>::Moment, T::Signature>
     for Module<T>
 {
     /// Validates if the AccountId 'actual_owner' owns the identity.
