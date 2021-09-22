@@ -3,22 +3,23 @@
 With our pallet now compiling and passing it's tests, we're ready to add it to our node.
 
 ```
-git clone -b v2.0.0-rc3 --depth 1 https://github.com/substrate-developer-hub/substrate-node-template
+git clone -b v2.0.1 --depth 1 https://github.com/substrate-developer-hub/substrate-node-template
 ```
 
-We first add our newly-created crate as a dependency in the node's runtime Cargo.toml. Then we tell the pallet to only build its std feature when the runtime itself does, as follows:
+We first add our newly-created crate as a dependency in the node's runtime Cargo.toml. Then we tell
+the pallet to only build its std feature when the runtime itself does, as follows:
 
 `my-node/runtime/Cargo.toml`
 
-``` TOML
+```TOML
 # --snip--
 
 [dependencies.pallet-did]
 default-features = false
 git = 'https://github.com/substrate-developer-hub/pallet-did'
 package = 'pallet-did'
-tag = '2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = '2.0.1'
+version = '2.0.1'
 
 
 # toward the bottom
@@ -29,9 +30,11 @@ std = [
     # --snip--
 ]
 ```
-Next we will update `my-node/runtime/src/lib.rs` to actually use our new runtime pallet, by adding a trait implementation with our pallet_did and add it in our construct_runtime! macro.
 
-``` rust
+Next we will update `my-node/runtime/src/lib.rs` to actually use our new runtime pallet, by adding a
+trait implementation with our pallet_did and add it in our construct_runtime! macro.
+
+```rust
 // add this import at the top
 use sp_runtime::MultiSigner;
 
@@ -56,7 +59,9 @@ construct_runtime!(
 );
 ```
 
-Follow the [Creating an External Pallet](https://substrate.dev/docs/en/tutorials/creating-a-runtime-module) to get a more detailed explanation on how to integrate a pallet into your node.
+Follow the
+[Creating an External Pallet](https://substrate.dev/docs/en/tutorials/creating-a-runtime-module) to
+get a more detailed explanation on how to integrate a pallet into your node.
 
 ## Building and Testing
 
