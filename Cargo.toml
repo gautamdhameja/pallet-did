@@ -1,12 +1,11 @@
 [package]
-authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
-description = 'FRAME pallet template for defining custom runtime logic.'
+description = 'Substrate Decentralized ID Pallet'
 edition = '2018'
+authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
 homepage = 'https://substrate.dev'
+repository = 'https://github.com/paritytech/substrate/'
 license = 'Unlicense'
-name = 'pallet-did'
-readme = 'README.md'
-repository = 'https://github.com/substrate-developer-hub/substrate-node-template/'
+ 
 version = '3.0.0'
 
 [package.metadata.docs.rs]
