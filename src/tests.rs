@@ -1,4 +1,4 @@
-use crate::{did::Did, mock::*, AttributeTransaction, Error};
+use crate::{mock::*, AttributeTransaction, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::Pair;
@@ -206,6 +206,7 @@ fn add_remove_add_remove_attr() {
     new_test_ext().execute_with(|| {
         let acct = "Alice";
         let vec = vec![7, 7, 7];
+        let vec2 = vec![8, 8, 8];
         assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), 0);
         assert_ok!(DID::add_attribute(
             Origin::signed(account_key(acct)),
@@ -220,18 +221,19 @@ fn add_remove_add_remove_attr() {
             account_key(acct),
             vec.to_vec()
         ));
+        assert_eq!(DID::nonce_of((account_key(acct), vec2.to_vec())), 0);
         assert_ok!(DID::add_attribute(
             Origin::signed(account_key(acct)),
             account_key(acct),
-            vec.to_vec(),
-            vec.to_vec(),
+            vec2.to_vec(),
+            vec2.to_vec(),
             None
         ));
-        assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), 2);
+        assert_eq!(DID::nonce_of((account_key(acct), vec2.to_vec())), 1);
         assert_ok!(DID::delete_attribute(
             Origin::signed(account_key(acct)),
             account_key(acct),
-            vec.to_vec()
+            vec2.to_vec()
         ));
     });
 }

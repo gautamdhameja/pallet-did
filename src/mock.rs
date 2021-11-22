@@ -1,34 +1,47 @@
-use crate::{Module, Trait};
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+// Creating mock runtime here
+use crate as pallet_did;
+use crate::*;
+use core::marker::PhantomData;
+use frame_support::{parameter_types, traits::EnsureOrigin};
 use frame_system as system;
-use pallet_timestamp as timestamp;
+use frame_system::RawOrigin;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
-    testing::Header,
+    testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
 
-impl_outer_origin! {
-  pub enum Origin for Test {}
-}
+pub use pallet_timestamp::Call as TimestampCall;
 
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
+
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
+
+// Configure a mock runtime to test the pallet.
+frame_support::construct_runtime!(
+	pub enum Test where
+		Block = Block,
+        NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic
+	{
+		System: system::{Pallet, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        DID: pallet_did::{Pallet, Call, Storage, Event<T>}, 
+	}
+);
+
 parameter_types! {
-  pub const BlockHashCount: u64 = 250;
-  pub const MaximumBlockWeight: Weight = 1024;
-  pub const MaximumBlockLength: u32 = 2 * 1024;
-  pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const BlockHashCount: u64 = 250;
+    pub const SS58Prefix: u8 = 42;
 }
 
-impl system::Trait for Test {
+impl system::Config for Test {
     type BaseCallFilter = ();
+    type BlockWeights = ();
+    type BlockLength = ();
+    type DbWeight = ();
     type Origin = Origin;
-    type Call = ();
+    type Call = Call;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -36,55 +49,70 @@ impl system::Trait for Test {
     type AccountId = sr25519::Public;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = ();
+    type Event = Event;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
 }
 
-impl timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = ();
     type WeightInfo = ();
 }
 
-impl Trait for Test {
-    type Event = ();
+impl pallet_did::Config for Test {
+    type Event = Event;
     type Public = sr25519::Public;
     type Signature = sr25519::Signature;
-    type Time = pallet_timestamp::Module<Test>;
 }
 
-pub type DID = Module<Test>;
-pub type System = system::Module<Test>;
+pub struct MockOrigin<T>(PhantomData<T>);
+
+
+impl<T: Config> EnsureOrigin<T::Origin> for MockOrigin<T> {
+    type Success = T::AccountId;
+    fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Signed(ref who) => Ok(who.clone()),
+            r => Err(T::Origin::from(r)),
+        })
+    }
+}
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
+
+pub fn account_key(s: &str) -> sr25519::Public {
+    sr25519::Pair::from_string(&format!("//{}", s), None)
+        .expect("static values are valid; qed")
+        .public()
 }
 
 pub fn account_pair(s: &str) -> sr25519::Pair {
     sr25519::Pair::from_string(&format!("//{}", s), None).expect("static values are valid; qed")
 }
 
-pub fn account_key(s: &str) -> sr25519::Public {
-    sr25519::Pair::from_string(&format!("//{}", s), None)
-        .expect("static values are valid; qed")
-        .public()
+// Offchain worker
+
+type TestExtrinsic = TestXt<Call, ()>;
+
+impl<C> system::offchain::SendTransactionTypes<C> for Test
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
+}
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let t = system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    t.into()       
 }
