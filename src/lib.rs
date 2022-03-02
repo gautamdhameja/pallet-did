@@ -99,32 +99,32 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub trait Trait: frame_system::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Config: frame_system::Config {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     type Public: IdentifyAccount<AccountId = Self::AccountId>;
     type Signature: Verify<Signer = Self::Public> + Member + Decode + Encode;
     type Time: Time;
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as DID {
+    trait Store for Module<T: Config> as DID {
         /// Identity delegates stored by type.
         /// Delegates are only valid for a specific period defined as blocks number.
         pub DelegateOf get(fn delegate_of): map hasher(blake2_128_concat) (T::AccountId, Vec<u8>, T::AccountId) => Option<T::BlockNumber>;
         /// The attributes that belong to an identity.
         /// Attributes are only valid for a specific period defined as blocks number.
-        pub AttributeOf get(fn attribute_of): map hasher(blake2_128_concat) (T::AccountId, [u8; 32]) => Attribute<T::BlockNumber, <<T as Trait>::Time as Time>::Moment>;
+        pub AttributeOf get(fn attribute_of): map hasher(blake2_128_concat) (T::AccountId, [u8; 32]) => Attribute<T::BlockNumber, <<T as Config>::Time as Time>::Moment>;
         /// Attribute nonce used to generate a unique hash even if the attribute is deleted and recreated.
         pub AttributeNonce get(fn nonce_of): map hasher(twox_64_concat) (T::AccountId, Vec<u8>) => u64;
         /// Identity owner.
         pub OwnerOf get(fn owner_of): map hasher(blake2_128_concat) T::AccountId => Option<T::AccountId>;
         /// Tracking the latest identity update.
-        pub UpdatedBy get(fn updated_by): map hasher(blake2_128_concat) T::AccountId => (T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::Moment);
+        pub UpdatedBy get(fn updated_by): map hasher(blake2_128_concat) T::AccountId => (T::AccountId, T::BlockNumber, <<T as Config>::Time as Time>::Moment);
     }
 }
 
 decl_module! {
-  pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+  pub struct Module<T: Config> for enum Call where origin: T::Origin {
       type Error = Error<T>;
 
       fn deposit_event() = default;
@@ -295,9 +295,9 @@ decl_module! {
 decl_event!(
   pub enum Event<T>
   where
-  <T as frame_system::Trait>::AccountId,
-  <T as frame_system::Trait>::BlockNumber,
-  <T as Trait>::Signature
+  <T as frame_system::Config>::AccountId,
+  <T as frame_system::Config>::BlockNumber,
+  <T as Config>::Signature
   {
     OwnerChanged(AccountId, AccountId, AccountId, BlockNumber),
     DelegateAdded(AccountId, Vec<u8>, AccountId, Option<BlockNumber>),
@@ -310,7 +310,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         NotOwner,
         InvalidDelegate,
         BadSignature,
@@ -323,7 +323,8 @@ decl_error! {
     }
 }
 
-impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::Moment, T::Signature>
+impl<T: Config>
+    Did<T::AccountId, T::BlockNumber, <<T as Config>::Time as Time>::Moment, T::Signature>
     for Module<T>
 {
     /// Validates if the AccountId 'actual_owner' owns the identity.
@@ -515,7 +516,7 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
     fn attribute_and_id(
         identity: &T::AccountId,
         name: &[u8],
-    ) -> Option<AttributedId<T::BlockNumber, <<T as Trait>::Time as Time>::Moment>> {
+    ) -> Option<AttributedId<T::BlockNumber, <<T as Config>::Time as Time>::Moment>> {
         let nonce = Self::nonce_of((&identity, name.to_vec()));
 
         // Used for first time attribute creation
@@ -536,7 +537,7 @@ impl<T: Trait> Did<T::AccountId, T::BlockNumber, <<T as Trait>::Time as Time>::M
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Creates a new attribute from a off-chain transaction.
     fn signed_attribute(
         who: T::AccountId,
